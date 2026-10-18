@@ -1,7 +1,6 @@
 import { platform, arch, hostname } from "os";
 import { PROVIDERS, PROVIDER_OAUTH } from "./providers.js";
 import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared.js";
-import { createRequire } from "module";
 
 // Nous Portal requires attribution for some API-key models. Use a neutral
 // router identity rather than exposing a credential or claiming another client.
@@ -214,6 +213,8 @@ let _appVersion;
 function getAppPackageVersion() {
   if (_appVersion) return _appVersion;
   try {
+    const createRequire = globalThis.process?.getBuiltinModule?.("module")?.createRequire;
+    if (!createRequire) throw new Error("createRequire is unavailable");
     const require = createRequire(import.meta.url);
     _appVersion = require("../../package.json").version || "0.0.0";
   } catch {
