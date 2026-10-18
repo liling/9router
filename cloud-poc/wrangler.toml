@@ -5,3 +5,9 @@ workers_dev = true
 
 [vars]
 UPSTREAM_ORIGIN = "http://127.0.0.1:8788"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lane-b"
+database_id = "local-lane-b"
+migrations_dir = "migrations"

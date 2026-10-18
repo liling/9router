@@ -1,3 +1,5 @@
+import { getWorkerExecutor } from "./worker-executors.js";
+
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
 
 export default {
@@ -6,6 +8,20 @@ export default {
 
     if (incomingUrl.pathname === "/health") {
       return Response.json({ ok: true, runtime: "worker" });
+    }
+
+    if (incomingUrl.pathname === "/probe/d1" && request.method === "POST") {
+      if (!env.DB) {
+        return Response.json({ error: "missing_d1_binding" }, { status: 500 });
+      }
+      const { key, value } = await request.json();
+      await env.DB.prepare(
+        "INSERT OR REPLACE INTO probe_records (key, value) VALUES (?, ?)",
+      ).bind(key, value).run();
+      const row = await env.DB.prepare(
+        "SELECT key, value FROM probe_records WHERE key = ?",
+      ).bind(key).first();
+      return Response.json({ row, executor: getWorkerExecutor("openai") });
     }
 
     if (incomingUrl.pathname !== "/v1/chat/completions" || request.method !== "POST") {
