@@ -18,10 +18,13 @@ const roots = [
   'open-sse/runtime/profiles/index.js',
   'open-sse/executors/serverless.js',
   'open-sse/translator/register-serverless.js',
+  'src/lib/apiKeys/service.js',
+  'cloud-poc/src/worker.js',
 ];
 const externalAllowlist = new Set(['node:crypto', 'crypto', 'node:os', 'os']);
 const LOCAL_ONLY_EXEMPTIONS = [];
-const vendorPackages = new Set(['undici', 'better-sqlite3', 'sql.js', 'node-machine-id']);
+const vendorPackages = new Set(['undici', 'better-sqlite3', 'sql.js', 'node-machine-id', 'pg', 'pg-native']);
+const adapterPathPrefixes = ['open-sse/runtime/adapters/', 'src/lib/db/adapters/'];
 const localOnlyBuiltin = /^(?:node:)?(?:fs|child_process|dns|net|http2)(?:\/|$)|^bun:/;
 
 function resolveLocalImport(fromFile, specifier) {
@@ -69,7 +72,7 @@ async function collectProductionGraph() {
       const localPath = resolveLocalImport(current, specifier);
       if (localPath) {
         const relativePath = localPath.slice(repoRoot.length + 1).replaceAll('\\', '/');
-        if (relativePath.startsWith('open-sse/runtime/adapters/')) forbiddenPaths.add(relativePath);
+        if (adapterPathPrefixes.some((prefix) => relativePath.startsWith(prefix))) forbiddenPaths.add(relativePath);
         pending.push(localPath);
       } else if (specifier.startsWith('.') || specifier.startsWith('open-sse/') || specifier.startsWith('@/')) {
         forbiddenPaths.add(`${current}: unresolved ${specifier}`);
