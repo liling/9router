@@ -17,7 +17,7 @@ async function reservePort() {
   return port;
 }
 
-test("Wrangler Workerd runs the production JSON/SSE executor path end to end", async (context) => {
+test("deployable Worker does not expose API-key operations", async (context) => {
   const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "lane-b", "--local"], {
     cwd: cloudPocDir,
     encoding: "utf8",
@@ -117,31 +117,10 @@ test("Wrangler Workerd runs the production JSON/SSE executor path end to end", a
     return { response, body: await response.json() };
   }
 
-  const d1Record = {
-    id: "workerd-contract-id",
-    key: "workerd-contract-key",
-    name: "D1 contract",
-    machineId: null,
-    isActive: true,
-    createdAt: "2026-10-18T00:00:00.000Z",
-    access: { restricted: true, allow: ["model-a"] },
-  };
-  const inserted = await d1ApiKey("insert", { record: d1Record });
-  assert.equal(inserted.response.status, 200, JSON.stringify(inserted.body));
-  assert.deepEqual(inserted.body, d1Record);
-  const duplicate = await d1ApiKey("insert", { record: d1Record });
-  assert.equal(duplicate.response.status, 409);
-  assert.equal(duplicate.body.code, "PERSISTENCE_CONFLICT");
-  assert.deepEqual((await d1ApiKey("findById", { id: d1Record.id })).body, d1Record);
-  assert.deepEqual((await d1ApiKey("findByKey", { key: d1Record.key })).body, d1Record);
-  const updatedRecord = { ...d1Record, name: "Updated D1 contract", isActive: false };
-  assert.deepEqual((await d1ApiKey("update", { record: updatedRecord })).body, updatedRecord);
-  assert.deepEqual((await d1ApiKey("list")).body, [updatedRecord]);
-  const missing = await d1ApiKey("update", { record: { ...updatedRecord, id: "missing" } });
-  assert.equal(missing.response.status, 404);
-  assert.equal(missing.body.code, "PERSISTENCE_NOT_FOUND");
-  assert.deepEqual((await d1ApiKey("delete", { id: d1Record.id })).body, { deleted: true });
-  assert.deepEqual((await d1ApiKey("delete", { id: d1Record.id })).body, { deleted: false });
+  for (const operation of ["list", "findById", "findByKey", "insert", "update", "delete"]) {
+    const result = await d1ApiKey(operation, { id: "known-id", key: "known-key", record: { id: "probe", key: "secret" } });
+    assert.equal(result.response.status, 404, `${operation} unexpectedly reached the deployable Worker`);
+  }
 
   const jsonResponse = await fetch(`${workerOrigin}/v1/chat/completions`, {
     method: "POST",
