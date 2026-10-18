@@ -1,3 +1,6 @@
+import { assertCapabilities, RuntimeCapabilityError } from "../runtime/capabilities.js";
+import { getRuntimeProfile, RUNTIME_PROFILES as RUNTIME_DESCRIPTORS } from "../runtime/profiles/index.js";
+
 const LOCAL_EXECUTORS = [
   "antigravity", "azure", "bedrock", "br", "bedrock-xai", "brx", "gemini-cli", "github",
   "iflow", "qoder", "qoder-cn", "kiro", "kimchi", "codex", "cursor", "cu", "vertex",
@@ -7,35 +10,66 @@ const LOCAL_EXECUTORS = [
   "minimax-code", "minimax-code-global", "devin-cli",
 ];
 
+const LEGACY_TAGS = Object.freeze({
+  "http-proxy": "proxy-transport",
+  "mitm-dns": "mitm-dns-bypass",
+  "fs-persistent": "node-fs",
+  "process-spawn": "child-process",
+});
+
+const legacyProfileTags = (descriptor) => Object.freeze(
+  descriptor.capabilityTags.map((tag) => LEGACY_TAGS[tag] || tag),
+);
+
 export const RUNTIME_PROFILES = Object.freeze({
-  "local-node": Object.freeze(["http-fetch", "node-stream", "node-fs", "child-process", "h2-duplex", "local-socket"]),
-  "local-bun": Object.freeze(["http-fetch", "node-stream", "node-fs", "child-process", "h2-duplex", "local-socket"]),
-  "serverless-worker": Object.freeze(["http-fetch"]),
+  ...Object.fromEntries(Object.entries(RUNTIME_DESCRIPTORS).map(([id, descriptor]) => [id, legacyProfileTags(descriptor)])),
+  "serverless-worker": legacyProfileTags(RUNTIME_DESCRIPTORS["cloudflare-worker"]),
 });
 
 export const EXECUTOR_CAPABILITIES = Object.freeze(Object.fromEntries(
-  LOCAL_EXECUTORS.map(provider => [provider, Object.freeze({ required: Object.freeze([]), localOnly: true })]),
+  LOCAL_EXECUTORS.map((provider) => [provider, Object.freeze({ required: Object.freeze([]), localOnly: true })]),
 ));
 
 export function getExecutorCapability(provider) {
   return EXECUTOR_CAPABILITIES[provider] ?? Object.freeze({ required: Object.freeze(["http-fetch"]), localOnly: false });
 }
 
-export class RuntimeCapabilityError extends Error {
-  constructor(provider, runtime, required) {
-    super(`Executor '${provider}' is not available in runtime '${runtime}'`);
-    this.name = "RuntimeCapabilityError";
-    this.code = "RUNTIME_CAPABILITY_UNAVAILABLE";
-    this.provider = provider;
-    this.runtime = runtime;
-    this.requiredCapabilities = required;
-  }
+function resolveDescriptor(runtimeOrContext) {
+  if (runtimeOrContext?.descriptor) return runtimeOrContext.descriptor;
+  if (runtimeOrContext?.capabilityTags) return runtimeOrContext;
+  if (typeof runtimeOrContext !== "string") return undefined;
+  const profileId = runtimeOrContext === "serverless-worker" ? "cloudflare-worker" : runtimeOrContext;
+  return getRuntimeProfile(profileId);
 }
 
-export function assertExecutorCapabilities(provider, runtime = "serverless-worker") {
+function unsupported(provider, runtime, required) {
+  const error = new RuntimeCapabilityError("RUNTIME_CAPABILITY_UNAVAILABLE", {
+    capability: required[0] || "process-spawn",
+    runtime,
+    subject: provider,
+  });
+  error.provider = provider;
+  error.requiredCapabilities = required;
+  return error;
+}
+
+export function assertExecutorCapabilities(provider, runtimeOrContext = "serverless-worker") {
   const capability = getExecutorCapability(provider);
-  const available = RUNTIME_PROFILES[runtime];
-  const unsupported = capability.localOnly || !available || !capability.required.every(tag => available.includes(tag));
-  if (unsupported) throw new RuntimeCapabilityError(provider, runtime, capability.required);
+  const descriptor = resolveDescriptor(runtimeOrContext);
+  const runtimeName = typeof runtimeOrContext === "string" ? runtimeOrContext : descriptor?.id;
+  if (!descriptor || capability.localOnly) {
+    throw unsupported(provider, runtimeName || String(runtimeOrContext), capability.required);
+  }
+  try {
+    assertCapabilities(descriptor, capability.required, provider);
+  } catch (error) {
+    if (!(error instanceof RuntimeCapabilityError)) throw error;
+    error.provider = provider;
+    error.requiredCapabilities = capability.required;
+    error.runtime = runtimeName;
+    throw error;
+  }
   return capability;
 }
+
+export { RuntimeCapabilityError };

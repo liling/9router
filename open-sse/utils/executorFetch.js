@@ -1,6 +1,7 @@
 import { RuntimeCapabilityError } from "../executors/capabilities.js";
+import { assertHttpTransport } from "../runtime/ports/httpTransport.js";
 
-let registeredFetch = null;
+let registeredHttpTransport = null;
 
 export const MITM_BYPASS_HOSTS = [
   "cloudcode-pa.googleapis.com",
@@ -99,8 +100,8 @@ export function buildVercelRelayRequest(targetUrl, options, relayUrl) {
 }
 
 export function registerExecutorFetch(fetchFn) {
-  if (typeof fetchFn !== "function") throw new TypeError("executor fetch port must be a function");
-  registeredFetch = fetchFn;
+  const port = typeof fetchFn === "function" ? { fetch: fetchFn } : fetchFn;
+  registeredHttpTransport = assertHttpTransport(port);
 }
 
 function hasProxyIntent(proxyOptions) {
@@ -117,7 +118,7 @@ function missingCapability(capability) {
 }
 
 export async function executorFetch(url, options = {}, proxyOptions = null) {
-  if (registeredFetch) return registeredFetch(url, options, proxyOptions);
+  if (registeredHttpTransport) return registeredHttpTransport.fetch(url, options, proxyOptions);
 
   const targetUrl = typeof url === "string" ? url : url.toString();
   const relayUrl = normalizeString(proxyOptions?.vercelRelayUrl);

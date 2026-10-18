@@ -2,10 +2,18 @@ import "../../open-sse/translator/register-serverless.js";
 import { initState, translateRequest, translateResponse } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
+import { composeRuntime, installRuntime } from "../../open-sse/runtime/context.js";
+import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
 import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
 
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
+
+const runtime = composeRuntime("cloudflare-worker", {
+  httpTransport: { fetch: globalThis.fetch.bind(globalThis) },
+});
+installRuntime(runtime);
+registerExecutorFetch(runtime.ports.httpTransport);
 
 function translateJSONResponse(body, state, clientFormat) {
   const message = body.choices?.[0]?.message || {};

@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { DefaultExecutor } from "../../../open-sse/executors/default.js";
 import { getExecutor, hasSpecializedExecutor } from "../../../open-sse/executors/serverless.js";
-import { assertExecutorCapabilities, getExecutorCapability, RuntimeCapabilityError } from "../../../open-sse/executors/capabilities.js";
+import { assertExecutorCapabilities, getExecutorCapability, RUNTIME_PROFILES, RuntimeCapabilityError } from "../../../open-sse/executors/capabilities.js";
+import { composeRuntime, installRuntime, resetRuntimeForTests } from "../../../open-sse/runtime/context.js";
 
 describe("serverless executor registry", () => {
+  it("uses installed runtime context and falls back only when no context is installed", () => {
+    resetRuntimeForTests();
+    expect(() => getExecutor("openai")).not.toThrow();
+
+    const httpTransport = { fetch: vi.fn() };
+    installRuntime(composeRuntime("local-node", { httpTransport }));
+    expect(() => getExecutor("devin-cli")).toThrow(expect.objectContaining({ runtime: "local-node" }));
+
+    installRuntime(composeRuntime("cloudflare-worker", { httpTransport }));
+    expect(() => getExecutor("devin-cli")).toThrow(expect.objectContaining({ runtime: "cloudflare-worker" }));
+    resetRuntimeForTests();
+  });
+
   it("uses DefaultExecutor for generic HTTP providers", () => {
     expect(getExecutor("openai")).toBeInstanceOf(DefaultExecutor);
     expect(getExecutor("openai-compatible-custom")).toBeInstanceOf(DefaultExecutor);
@@ -22,5 +36,13 @@ describe("serverless executor registry", () => {
   it("defaults unlisted providers to the HTTP fetch capability", () => {
     expect(getExecutorCapability("future-http-provider")).toEqual({ required: ["http-fetch"], localOnly: false });
     expect(() => assertExecutorCapabilities("future-http-provider")).not.toThrow();
+  });
+
+  it("resolves capability tags from runtime profiles and context descriptors", () => {
+    const descriptor = { id: "future-deno", capabilityTags: ["http-fetch"] };
+    expect(() => assertExecutorCapabilities("future-http-provider", "cloudflare-worker")).not.toThrow();
+    expect(() => assertExecutorCapabilities("future-http-provider", { descriptor })).not.toThrow();
+    expect(() => assertExecutorCapabilities("future-http-provider", "serverless-worker")).not.toThrow();
+    expect(RUNTIME_PROFILES["local-node"]).toContain("proxy-transport");
   });
 });

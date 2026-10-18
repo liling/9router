@@ -75,4 +75,14 @@ describe("executor fetch port", () => {
       enabled: true, url: "proxy.test:8080", noProxy: "example.test",
     })).toBe("proxy.test:8080");
   });
+
+  it("accepts the HttpTransport object shape while preserving the legacy registrar", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response("port"));
+    const { executorFetch, registerExecutorFetch } = await import("../../open-sse/utils/executorFetch.js");
+    registerExecutorFetch({ fetch });
+
+    const response = await executorFetch("https://api.example.test", { method: "GET" });
+    expect(await response.text()).toBe("port");
+    expect(fetch).toHaveBeenCalledWith("https://api.example.test", { method: "GET" }, null);
+  });
 });
