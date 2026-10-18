@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createServer, request as httpRequest } from "node:http";
 import { once } from "node:events";
 import { dirname, resolve } from "node:path";
@@ -18,6 +18,13 @@ async function reservePort() {
 }
 
 test("Wrangler Workerd runs the production JSON/SSE executor path end to end", async (context) => {
+  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "lane-b", "--local"], {
+    cwd: cloudPocDir,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" },
+  });
+  assert.equal(migrations.status, 0, migrations.stderr || migrations.stdout);
+
   let resolveUpstreamAbort;
   const upstreamAbort = new Promise((resolve) => { resolveUpstreamAbort = resolve; });
   let serverProcess;
@@ -100,6 +107,41 @@ test("Wrangler Workerd runs the production JSON/SSE executor path end to end", a
     }
   }
   assert.equal(ready, true, `Wrangler did not become ready:\n${logs}`);
+
+  async function d1ApiKey(operation, input = {}) {
+    const response = await fetch(`${workerOrigin}/probe/d1/api-keys`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ operation, ...input }),
+    });
+    return { response, body: await response.json() };
+  }
+
+  const d1Record = {
+    id: "workerd-contract-id",
+    key: "workerd-contract-key",
+    name: "D1 contract",
+    machineId: null,
+    isActive: true,
+    createdAt: "2026-10-18T00:00:00.000Z",
+    access: { restricted: true, allow: ["model-a"] },
+  };
+  const inserted = await d1ApiKey("insert", { record: d1Record });
+  assert.equal(inserted.response.status, 200, JSON.stringify(inserted.body));
+  assert.deepEqual(inserted.body, d1Record);
+  const duplicate = await d1ApiKey("insert", { record: d1Record });
+  assert.equal(duplicate.response.status, 409);
+  assert.equal(duplicate.body.code, "PERSISTENCE_CONFLICT");
+  assert.deepEqual((await d1ApiKey("findById", { id: d1Record.id })).body, d1Record);
+  assert.deepEqual((await d1ApiKey("findByKey", { key: d1Record.key })).body, d1Record);
+  const updatedRecord = { ...d1Record, name: "Updated D1 contract", isActive: false };
+  assert.deepEqual((await d1ApiKey("update", { record: updatedRecord })).body, updatedRecord);
+  assert.deepEqual((await d1ApiKey("list")).body, [updatedRecord]);
+  const missing = await d1ApiKey("update", { record: { ...updatedRecord, id: "missing" } });
+  assert.equal(missing.response.status, 404);
+  assert.equal(missing.body.code, "PERSISTENCE_NOT_FOUND");
+  assert.deepEqual((await d1ApiKey("delete", { id: d1Record.id })).body, { deleted: true });
+  assert.deepEqual((await d1ApiKey("delete", { id: d1Record.id })).body, { deleted: false });
 
   const jsonResponse = await fetch(`${workerOrigin}/v1/chat/completions`, {
     method: "POST",

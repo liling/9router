@@ -3,6 +3,7 @@ import { initState, translateRequest, translateResponse } from "../../open-sse/t
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
 import { composeRuntime, installRuntime } from "../../open-sse/runtime/context.js";
+import { createD1ApiKeyRepository } from "../../open-sse/runtime/adapters/d1/apiKeyRepository.js";
 import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
 import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
@@ -120,6 +121,25 @@ export default {
       const row = await env.DB.prepare("SELECT key, value FROM probe_records WHERE key = ?")
         .bind(key).first();
       return Response.json({ row, executor: getExecutor("openai").getProvider() });
+    }
+
+    if (incomingUrl.pathname === "/probe/d1/api-keys" && request.method === "POST") {
+      if (!env.DB) return Response.json({ error: "missing_d1_binding" }, { status: 500 });
+      const repository = createD1ApiKeyRepository(env.DB);
+      const { operation, record, id, key } = await request.json();
+      try {
+        if (operation === "list") return Response.json(await repository.list());
+        if (operation === "findById") return Response.json(await repository.findById(id));
+        if (operation === "findByKey") return Response.json(await repository.findByKey(key));
+        if (operation === "insert") return Response.json(await repository.insert(record));
+        if (operation === "update") return Response.json(await repository.update(record));
+        if (operation === "delete") return Response.json({ deleted: await repository.delete(id) });
+        return Response.json({ error: "unknown_operation" }, { status: 400 });
+      } catch (error) {
+        return Response.json({ error: error.name, code: error.code, message: error.message }, {
+          status: error.code === "PERSISTENCE_CONFLICT" ? 409 : error.code === "PERSISTENCE_NOT_FOUND" ? 404 : 500,
+        });
+      }
     }
 
     if (incomingUrl.pathname !== "/v1/chat/completions" || request.method !== "POST") {
