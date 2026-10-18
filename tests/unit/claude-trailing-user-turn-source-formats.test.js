@@ -3,6 +3,7 @@
 // prefill and must survive translation to Claude; an emptied trailing user turn must
 // still get the "Continue." restoration.
 import { describe, it, expect } from "vitest";
+import "../translator/registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 
 const roles = (body) => body.messages.map((m) => m.role);

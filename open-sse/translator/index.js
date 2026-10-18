@@ -7,7 +7,6 @@ import { filterToOpenAIFormat } from "./formats/openai.js";
 import { normalizeThinkingConfig } from "../services/provider.js";
 import { applyThinking, captureThinking } from "./concerns/thinkingUnified.js";
 import { captureSessionId } from "../utils/sessionManager.js";
-import { AntigravityExecutor } from "../executors/antigravity.js";
 import { PROVIDERS } from "../providers/index.js";
 import { ROLE, GEMINI_ROLE } from "./schema/roles.js";
 
@@ -165,15 +164,6 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
     }
   }
 
-  // Antigravity cloaking disabled
-  // if (provider === FORMATS.ANTIGRAVITY && body.userAgent !== FORMATS.ANTIGRAVITY) {
-  //   const { cloakedBody, toolNameMap } = AntigravityExecutor.cloakTools(result);
-  //   result = cloakedBody;
-  //   if (toolNameMap?.size > 0) {
-  //     result._toolNameMap = toolNameMap;
-  //   }
-  // }
-
   return result;
 }
 
@@ -303,27 +293,3 @@ export function initState(sourceFormat) {
 export function initTranslators() {
   ensureInitialized();
 }
-
-// Static side-effect imports: each module calls register() at load (works in ESM + bundler).
-import "./request/claude-to-openai.js";
-import "./request/openai-to-claude.js";
-import "./request/gemini-to-openai.js";
-import "./request/openai-to-gemini.js";
-import "./request/openai-to-vertex.js";
-import "./request/antigravity-to-openai.js";
-import "./request/openai-responses.js";
-import "./request/openai-to-kiro.js";
-import "./request/openai-to-cursor.js";
-import "./request/openai-to-ollama.js";
-import "./request/openai-to-commandcode.js";
-import "./request/claude-to-kiro.js";
-import "./response/claude-to-openai.js";
-import "./response/openai-to-claude.js";
-import "./response/gemini-to-openai.js";
-import "./response/openai-to-antigravity.js";
-import "./response/openai-responses.js";
-import "./response/kiro-to-openai.js";
-import "./response/cursor-to-openai.js";
-import "./response/ollama-to-openai.js";
-import "./response/commandcode-to-openai.js";
-import "./response/kiro-to-claude.js";

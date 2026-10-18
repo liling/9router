@@ -3,6 +3,7 @@
  * Prior-turn reasoning (+ encrypted_content) must survive Chat Completions ↔ Responses.
  */
 import { describe, it, expect } from "vitest";
+import "../translator/registerAll.js";
 import {
   openaiToOpenAIResponsesRequest,
   openaiResponsesToOpenAIRequest,

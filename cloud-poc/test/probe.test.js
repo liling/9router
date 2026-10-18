@@ -5,6 +5,7 @@ import worker from "../src/worker.js";
 
 test("Worker registry excludes Local-only executors", () => {
   assert.deepEqual(getWorkerExecutor("openai"), { kind: "fetch", provider: "openai" });
+  assert.deepEqual(getWorkerExecutor("anthropic"), { kind: "fetch", provider: "anthropic" });
   for (const provider of excludedLocalProviders) {
     assert.throws(() => getWorkerExecutor(provider), /not registered for Workers/);
   }
