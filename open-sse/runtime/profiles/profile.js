@@ -1,6 +1,6 @@
 import { defineRuntimeDescriptor } from '../descriptor.js';
 
-const PORTS = Object.freeze(['httpTransport', 'persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process']);
+const PORTS = Object.freeze(['httpTransport', 'persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process']);
 
 export function createProfile({ id, label, kind, runtimeFamily, lifecycle, scale, filesystem, background, capabilityTags, availablePorts, authoritativePorts = [], sharedEphemeral = false, plannedPorts = {} }) {
   const authoritative = new Set(authoritativePorts);

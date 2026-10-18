@@ -4,6 +4,8 @@ import { composeRuntime, getRuntime, installRuntime, resetRuntimeForTests } from
 import { defineRuntimeDescriptor, validateRuntimeDescriptor } from '../../../open-sse/runtime/descriptor.js';
 import { RUNTIME_PROFILES } from '../../../open-sse/runtime/profiles/index.js';
 import { createProfile } from '../../../open-sse/runtime/profiles/profile.js';
+import { assertBackgroundTasks, BACKGROUND_TASK_METHODS } from '../../../open-sse/runtime/ports/backgroundTasks.js';
+import { assertScheduler, SCHEDULER_METHODS } from '../../../open-sse/runtime/ports/scheduler.js';
 
 describe('runtime capability contracts', () => {
   beforeEach(() => resetRuntimeForTests());
@@ -23,24 +25,33 @@ describe('runtime capability contracts', () => {
 
   it('declares only implemented ports and records planned adapters separately', () => {
     const expectedPlannedPorts = {
-      'cloudflare-worker': ['persistence', 'ephemeral', 'lease', 'secret', 'blob'],
-      'cloud-run': ['persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process'],
-      'vercel-node': ['persistence', 'ephemeral', 'secret'],
-      'local-node': ['persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process'],
-      'docker-node': ['persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process'],
-      'local-bun': ['persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process'],
+      'cloudflare-worker': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob'],
+      'cloud-run': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
+      'vercel-node': ['persistence', 'ephemeral', 'secret', 'backgroundTasks', 'scheduler'],
+      'local-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
+      'docker-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
+      'local-bun': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
     };
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(['httpTransport']);
       expect(profile.ports.httpTransport.authoritative).toBe(true);
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].planned)).toEqual(expectedPlannedPorts[id]);
     }
-    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.background.available).toBe(false);
-    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.background.planned).toBeUndefined();
-    expect(RUNTIME_PROFILES['vercel-node'].ports.background.planned).toBeUndefined();
+    expect(Object.keys(RUNTIME_PROFILES['local-node'].ports)).toHaveLength(9);
+    for (const profile of Object.values(RUNTIME_PROFILES)) {
+      expect(profile.ports.backgroundTasks.available).toBe(false);
+      expect(profile.ports.scheduler.available).toBe(false);
+    }
     expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral.planned.shared).toBe(true);
     expect(RUNTIME_PROFILES['local-node'].ports.ephemeral.planned).toMatchObject({ authoritative: true, shared: false });
-    expect(RUNTIME_PROFILES['cloud-run'].ports.background.planned.note).toMatch(/Best-effort/);
+    expect(RUNTIME_PROFILES['cloud-run'].ports.backgroundTasks.planned.note).toMatch(/Best-effort/);
+    expect(RUNTIME_PROFILES['cloudflare-worker'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
+    expect(RUNTIME_PROFILES['vercel-node'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
+    expect(RUNTIME_PROFILES['cloudflare-worker'].filesystem).toEqual({ importable: true, writable: 'ephemeral', durableAcrossRestarts: false, scope: 'request' });
+    expect(RUNTIME_PROFILES['cloudflare-worker'].capabilityTags).not.toContain('fs-ephemeral');
+    expect(RUNTIME_PROFILES['cloud-run'].capabilityTags).not.toContain('stable-timers');
+    expect(RUNTIME_PROFILES['cloud-run'].background).toEqual({ model: 'process-timers', survivesResponse: false, durable: false });
+    for (const id of ['local-node', 'docker-node', 'local-bun']) expect(RUNTIME_PROFILES[id].background.durable).toBe(true);
   });
 
   it('composes Cloudflare with only the implemented HTTP port and rejects planned ports at use', () => {
@@ -75,12 +86,30 @@ describe('runtime capability contracts', () => {
     }));
   });
 
+  it('requires durable background semantics and bounded work to survive the response', () => {
+    const cloudflare = RUNTIME_PROFILES['cloudflare-worker'];
+    expect(validateRuntimeDescriptor({ ...cloudflare, background: { ...cloudflare.background, survivesResponse: false } })).toContain('bounded-waituntil must survive the response');
+    expect(validateRuntimeDescriptor({ ...cloudflare, background: { model: 'none', survivesResponse: false } })).toContain('background is invalid');
+    expect(validateRuntimeDescriptor({ ...cloudflare, ports: { ...cloudflare.ports, legacyBackground: { available: false } } })).toContain('ports must declare exactly the nine port availabilities');
+  });
+
+  it('keeps BackgroundTasks and Scheduler as independent one-method contracts', () => {
+    const enqueue = () => {};
+    const schedule = () => {};
+    expect(BACKGROUND_TASK_METHODS).toEqual(['enqueue']);
+    expect(SCHEDULER_METHODS).toEqual(['schedule']);
+    expect(assertBackgroundTasks({ enqueue })).toEqual({ enqueue });
+    expect(() => assertBackgroundTasks({ schedule })).toThrow('BackgroundTasks.enqueue is required');
+    expect(assertScheduler({ schedule })).toEqual({ schedule });
+    expect(() => assertScheduler({ enqueue })).toThrow('Scheduler.schedule is required');
+  });
+
   it('matches a future Deno profile without Core changes', () => {
     const deno = createProfile({
       id: 'deno-future', label: 'Deno Future', kind: 'process', runtimeFamily: 'deno',
       lifecycle: { model: 'long-lived' }, scale: { instanceModel: 'single' },
       filesystem: { importable: true, writable: 'persistent', durableAcrossRestarts: true },
-      background: { model: 'process-timers', survivesResponse: true },
+      background: { model: 'process-timers', survivesResponse: true, durable: true },
       capabilityTags: ['http-fetch', 'fs-persistent', 'stable-timers'],
       availablePorts: ['httpTransport'],
       authoritativePorts: ['httpTransport'],
