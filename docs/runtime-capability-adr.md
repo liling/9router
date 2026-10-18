@@ -32,6 +32,12 @@ The closed v1 tag set is `http-fetch`, `http-proxy`, `mitm-dns`, `h2-duplex`, `n
 - `Blob`: `put`, `get`, and `delete` for byte/stream payloads. Missing capability means an explicit disabled or explicit no-cache behavior.
 - `Process/CLI/Socket` (optional, local-only): `spawn`, `machineIdentity`, and `localSocketReachable`.
 
+### API-key persistence refinement (Phase 3A, PR-A)
+
+The first production aggregate selected for migration is API keys. Its application-facing `ApiKeyRepository` is a Promise-based domain port, not the generic `Repository` CRUD facade. It exposes `findById(id)`, `findByKey(key)`, `list()`, `insert(record)`, `update(record)`, and `delete(id)`. `list` is ordered by `createdAt` ascending with stable tie ordering. Inserts reject duplicate identifiers or keys with `PersistenceConflictError`; updating a missing identifier rejects with `PersistenceNotFoundError`; deleting a missing identifier returns `false`. Lookups return a domain record or `null`.
+
+`ApiKeyRecord` consists of `id`, `key`, `name`, nullable `machineId`, boolean `isActive`, ISO-8601 `createdAt`, and `access: { restricted, allow }`. SQL rows, column conversions, statements, drivers, and transaction callbacks remain adapter details. This contract does not define transactions or backend/runtime branching. The API key itself remains sensitive stored data; this refinement does not introduce SecretProvider migration. SQLite/D1/Postgres adapters and consumer migration remain subsequent lanes; adapter existence alone must not imply profile persistence availability.
+
 ## 5. Errors, authority, and dependency rules
 
 `RuntimeCapabilityError` is the explicit error contract with `code`, `capability`, `runtime`, and optional `subject`. Codes are `RUNTIME_CAPABILITY_UNAVAILABLE`, `RUNTIME_PORT_UNAVAILABLE`, and `RUNTIME_CONTEXT_NOT_INSTALLED`; its legacy executor constructor remains compatible during migration. No silent fallback is allowed: ephemeral storage cannot become an in-memory Map, proxy settings cannot be discarded, and a dropped best-effort task must never be treated as authoritative completion.
