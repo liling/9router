@@ -69,7 +69,7 @@ afterAll(async () => {
   }
 });
 
-apiKeyRepositoryContract(async () => repository);
+apiKeyRepositoryContract(async () => repository, { describe, it });
 
 describe('PostgreSQL ApiKeyRepository constraints', () => {
   it('maps duplicate ids and duplicate keys to persistence conflicts', async () => {
