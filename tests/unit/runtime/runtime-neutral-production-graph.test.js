@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
  * runtime/context.js, runtime/capabilities.js, runtime/profiles/index.js,
  * executors/serverless.js, and translator/register-serverless.js.
  * Adding a root explicitly expands this architecture boundary.
+ * Any future need for a Local-only exception requires an ADR root-set decision,
+ * not a test-local whitelist change.
  */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const roots = [
@@ -18,6 +20,7 @@ const roots = [
   'open-sse/translator/register-serverless.js',
 ];
 const externalAllowlist = new Set(['node:crypto', 'crypto', 'node:os', 'os']);
+const LOCAL_ONLY_EXEMPTIONS = [];
 const vendorPackages = new Set(['undici', 'better-sqlite3', 'sql.js', 'node-machine-id']);
 const localOnlyBuiltin = /^(?:node:)?(?:fs|child_process|dns|net|http2)(?:\/|$)|^bun:/;
 
@@ -85,6 +88,7 @@ async function collectProductionGraph() {
 describe('runtime-neutral production graph (reachable closure of declared roots)', () => {
   it('resolves the declared roots and excludes adapters, vendor SDKs, and Local-only builtins', async () => {
     expect(roots.every((root) => existsSync(resolve(repoRoot, root)))).toBe(true);
+    expect(LOCAL_ONLY_EXEMPTIONS).toEqual([]);
 
     const graph = await collectProductionGraph();
     expect([...graph.forbiddenPaths]).toEqual([]);
