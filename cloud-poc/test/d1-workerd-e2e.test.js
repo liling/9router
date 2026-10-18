@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { once } from "node:events";
@@ -51,8 +52,9 @@ test("test-only Workerd entrypoint verifies the real D1 repository contract", as
     return { response, body: await response.json() };
   }
 
+  const runId = randomUUID();
   const record = {
-    id: "workerd-contract-id", key: "workerd-contract-key", name: "D1 contract", machineId: null,
+    id: `workerd-contract-${runId}`, key: `workerd-contract-key-${runId}`, name: "D1 contract", machineId: null,
     isActive: true, createdAt: "2026-10-18T00:00:00.000Z", access: { restricted: true, allow: ["model-a"] },
   };
   assert.deepEqual((await call("insert", { record })).body, record);
@@ -62,11 +64,24 @@ test("test-only Workerd entrypoint verifies the real D1 repository contract", as
   assert.deepEqual((await call("findById", { id: record.id })).body, record);
   assert.deepEqual((await call("findByKey", { key: record.key })).body, record);
   const updated = { ...record, name: "Updated D1 contract", isActive: false };
-  assert.deepEqual((await call("update", { record: updated })).body, updated);
-  assert.deepEqual((await call("list")).body, [updated]);
-  const missing = await call("update", { record: { ...updated, id: "missing" } });
+  assert.deepEqual((await call("update", { id: record.id, patch: { name: updated.name, isActive: false, id: "ignored", createdAt: "ignored" } })).body, updated);
+  assert.deepEqual((await call("update", { id: record.id, patch: { name: null, machineId: null } })).body, { ...updated, name: null });
+  const reset = await call("update", { id: record.id, patch: { name: updated.name } });
+  assert.deepEqual(reset.body, updated);
+  assert.deepEqual((await call("list")).body.find((item) => item.id === record.id), updated);
+  const missing = await call("update", { id: "missing", patch: { name: "Missing" } });
   assert.equal(missing.response.status, 404);
   assert.equal(missing.body.code, "PERSISTENCE_NOT_FOUND");
+
+  const concurrent = { ...record, id: `workerd-concurrent-${runId}`, key: `workerd-concurrent-key-${runId}` };
+  await call("insert", { record: concurrent });
+  await Promise.all([
+    call("update", { id: concurrent.id, patch: { isActive: false } }),
+    call("update", { id: concurrent.id, patch: { access: { restricted: true, allow: ["combo-a"] } } }),
+  ]);
+  const afterConcurrent = (await call("findById", { id: concurrent.id })).body;
+  assert.equal(afterConcurrent.isActive, false);
+  assert.deepEqual(afterConcurrent.access, { restricted: true, allow: ["combo-a"] });
   assert.deepEqual((await call("delete", { id: record.id })).body, { deleted: true });
   assert.deepEqual((await call("delete", { id: record.id })).body, { deleted: false });
 });

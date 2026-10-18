@@ -67,22 +67,35 @@ export function createD1ApiKeyRepository(db) {
       return record;
     },
 
-    async update(record) {
+    async update(id, patch) {
+      const assignments = [];
+      const values = [];
+      const columns = {
+        key: 'key',
+        name: 'name',
+        machineId: 'machine_id',
+        isActive: 'is_active',
+      };
+      for (const [field, column] of Object.entries(columns)) {
+        if (!Object.hasOwn(patch, field)) continue;
+        assignments.push(`${column} = ?`);
+        values.push(field === 'isActive' ? (patch[field] ? 1 : 0) : patch[field]);
+      }
+      if (Object.hasOwn(patch, 'access')) {
+        assignments.push('access_restricted = ?', 'access_allow = ?');
+        values.push(patch.access.restricted ? 1 : 0, JSON.stringify(patch.access.allow || []));
+      }
       try {
-        const result = await bind(db,
-          `UPDATE api_keys SET key = ?, name = ?, machine_id = ?, is_active = ?, access_restricted = ?, access_allow = ? WHERE id = ?`,
-          [record.key, record.name, record.machineId, record.isActive ? 1 : 0,
-            record.access.restricted ? 1 : 0, JSON.stringify(record.access.allow || []), record.id],
-        ).run();
-        if ((result.meta?.changes || 0) === 0) {
-          const existing = await bind(db, 'SELECT id FROM api_keys WHERE id = ?', [record.id]).first();
-          if (!existing) throw new PersistenceNotFoundError(`API key ${record.id} was not found`);
+        if (assignments.length) {
+          await bind(db, `UPDATE api_keys SET ${assignments.join(', ')} WHERE id = ?`, [...values, id]).run();
         }
+        const updated = await bind(db, `SELECT ${SELECT_COLUMNS} FROM api_keys WHERE id = ?`, [id]).first();
+        if (!updated) throw new PersistenceNotFoundError(`API key ${id} was not found`);
+        return rowToRecord(updated);
       } catch (error) {
         if (error instanceof PersistenceNotFoundError) throw error;
         throwPersistenceError(error);
       }
-      return record;
     },
 
     async delete(id) {

@@ -8,13 +8,13 @@ export default {
       return worker.fetch(request, env);
     }
     const repository = createD1ApiKeyRepository(env.DB);
-    const { operation, record, id, key } = await request.json();
+    const { operation, record, id, key, patch } = await request.json();
     try {
       if (operation === "list") return Response.json(await repository.list());
       if (operation === "findById") return Response.json(await repository.findById(id));
       if (operation === "findByKey") return Response.json(await repository.findByKey(key));
       if (operation === "insert") return Response.json(await repository.insert(record));
-      if (operation === "update") return Response.json(await repository.update(record));
+      if (operation === "update") return Response.json(await repository.update(id, patch));
       if (operation === "delete") return Response.json({ deleted: await repository.delete(id) });
       return Response.json({ error: "unknown_operation" }, { status: 400 });
     } catch (error) {
