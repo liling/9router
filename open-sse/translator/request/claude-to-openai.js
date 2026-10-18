@@ -1,7 +1,7 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { adjustMaxTokens } from "../formats/maxTokens.js";
-import { encodeDataUri } from "../concerns/image.js";
+import { encodeDataUri } from "../concerns/dataUri.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { collapseTextParts } from "../concerns/message.js";
 
