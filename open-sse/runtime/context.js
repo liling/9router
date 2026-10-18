@@ -2,7 +2,7 @@ import { assertCapabilities, RuntimeCapabilityError } from './capabilities.js';
 import { validateRuntimeDescriptor } from './descriptor.js';
 import { RUNTIME_PROFILES } from './profiles/index.js';
 
-const PORT_IDS = Object.freeze(['httpTransport', 'persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process']);
+const PORT_IDS = Object.freeze(['httpTransport', 'persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process']);
 let installedRuntime;
 
 export function composeRuntime(profileId, adapters = {}, profiles = RUNTIME_PROFILES) {

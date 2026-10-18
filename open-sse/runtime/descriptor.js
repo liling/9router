@@ -1,6 +1,6 @@
 import { CAPABILITIES, normalizeCapability } from './capabilities.js';
 
-const PORT_IDS = ['httpTransport', 'persistence', 'ephemeral', 'lease', 'secret', 'background', 'blob', 'process'];
+const PORT_IDS = ['httpTransport', 'persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'];
 const RUNTIME_KINDS = ['process', 'container', 'function', 'isolate'];
 const LIFECYCLES = ['long-lived', 'instance-restart', 'function-scoped', 'isolate-scoped'];
 
@@ -13,10 +13,11 @@ export function validateRuntimeDescriptor(descriptor) {
   if (!descriptor.runtimeFamily) issues.push('runtimeFamily is required');
   if (!descriptor.lifecycle || !LIFECYCLES.includes(descriptor.lifecycle.model)) issues.push('lifecycle.model is invalid');
   if (!descriptor.scale || !['single', 'multi'].includes(descriptor.scale.instanceModel) || typeof descriptor.scale.stickySessions !== 'boolean') issues.push('scale is invalid');
-  if (!descriptor.filesystem || typeof descriptor.filesystem.importable !== 'boolean' || !['persistent', 'volume', 'ephemeral', 'none'].includes(descriptor.filesystem.writable) || typeof descriptor.filesystem.durableAcrossRestarts !== 'boolean') issues.push('filesystem is invalid');
-  if (!descriptor.background || !['process-timers', 'bounded-waituntil', 'platform-scheduled', 'none'].includes(descriptor.background.model) || typeof descriptor.background.survivesResponse !== 'boolean') issues.push('background is invalid');
+  if (!descriptor.filesystem || typeof descriptor.filesystem.importable !== 'boolean' || !['persistent', 'volume', 'ephemeral', 'none'].includes(descriptor.filesystem.writable) || typeof descriptor.filesystem.durableAcrossRestarts !== 'boolean' || (descriptor.filesystem.scope !== undefined && !['request', 'instance'].includes(descriptor.filesystem.scope))) issues.push('filesystem is invalid');
+  if (!descriptor.background || !['process-timers', 'bounded-waituntil', 'platform-scheduled', 'none'].includes(descriptor.background.model) || typeof descriptor.background.survivesResponse !== 'boolean' || typeof descriptor.background.durable !== 'boolean') issues.push('background is invalid');
+  if (descriptor.background?.model === 'bounded-waituntil' && descriptor.background.survivesResponse !== true) issues.push('bounded-waituntil must survive the response');
   if (!Array.isArray(descriptor.capabilityTags) || descriptor.capabilityTags.some((tag) => !CAPABILITIES.includes(normalizeCapability(tag)))) issues.push('capabilityTags contains an unknown capability');
-  if (!descriptor.ports || PORT_IDS.some((id) => !descriptor.ports[id] || typeof descriptor.ports[id].available !== 'boolean')) issues.push('ports must declare all eight port availabilities');
+  if (!descriptor.ports || PORT_IDS.some((id) => !descriptor.ports[id] || typeof descriptor.ports[id].available !== 'boolean') || Object.keys(descriptor.ports ?? {}).some((id) => !PORT_IDS.includes(id))) issues.push('ports must declare exactly the nine port availabilities');
   for (const key of ['httpTransport', 'persistence', 'ephemeral']) {
     if (descriptor.ports?.[key]?.available && typeof descriptor.ports[key].authoritative !== 'boolean') issues.push(`ports.${key}.authoritative is required`);
   }

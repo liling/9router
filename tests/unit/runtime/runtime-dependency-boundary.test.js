@@ -13,8 +13,8 @@ async function collectFiles(directory) {
   return nested.flat();
 }
 
-describe('runtime dependency boundary', () => {
-  it('contains no adapter, vendor SDK, or runtime builtin imports', async () => {
+describe('runtime foundation module dependency boundary', () => {
+  it('keeps runtime foundation modules free of adapter, vendor SDK, or runtime builtin imports', async () => {
     const files = await collectFiles(runtimeRoot);
     const sources = await Promise.all(files.map((file) => readFile(file, 'utf8')));
     const forbidden = /(?:from\s*|import\s*\()\s*['"](?:\.\/?[^'"]*adapters\/|(?:node:)?(?:fs|child_process|dns)|bun:|undici|better-sqlite3|sql\.js|node-machine-id)/;
