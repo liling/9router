@@ -1,0 +1,9 @@
+name = "9router-lane-b-probe"
+main = "src/worker.js"
+compatibility_date = "2026-10-18"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lane-b"
+database_id = "local-lane-b"
+migrations_dir = "migrations"
