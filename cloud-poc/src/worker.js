@@ -1,20 +1,19 @@
-import { initState, translateResponse } from "../../open-sse/translator/index.js";
+import "../../open-sse/translator/register-serverless.js";
+import { initState, translateRequest, translateResponse } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
-import "../../open-sse/translator/response/claude-to-openai.js";
-import "../../open-sse/translator/response/openai-to-claude.js";
+import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
 import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
-import { getWorkerExecutor } from "./worker-executors.js";
 
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
 
-function translateJSONResponse(body, state) {
+function translateJSONResponse(body, state, clientFormat) {
   const message = body.choices?.[0]?.message || {};
   const chunks = [
     { id: body.id, model: body.model, choices: [{ delta: { role: "assistant", ...message } }] },
     { id: body.id, model: body.model, choices: [{ delta: {}, finish_reason: body.choices?.[0]?.finish_reason || "stop" }] },
   ];
-  const events = chunks.flatMap((chunk) => translateResponse(FORMATS.OPENAI, FORMATS.CLAUDE, chunk, state) || []);
+  const events = chunks.flatMap((chunk) => translateResponse(FORMATS.OPENAI, clientFormat, chunk, state) || []);
   const messageStart = events.find((event) => event.type === "message_start")?.message || {};
   const content = [];
   for (const event of events) {
@@ -38,7 +37,7 @@ function translateJSONResponse(body, state) {
   };
 }
 
-function translateSSE(body, upstreamFormat, clientFormat) {
+function translateSSE(body, clientFormat, onCancel) {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   const state = initState(clientFormat);
@@ -50,18 +49,18 @@ function translateSSE(body, upstreamFormat, clientFormat) {
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {
-        const parsed = parseSSELine(line.trim(), upstreamFormat);
+        const parsed = parseSSELine(line.trim(), FORMATS.OPENAI);
         if (!parsed || parsed.done) continue;
-        const translated = translateResponse(upstreamFormat, clientFormat, parsed, state) || [];
+        const translated = translateResponse(FORMATS.OPENAI, clientFormat, parsed, state) || [];
         for (const item of translated) controller.enqueue(encoder.encode(formatSSE(item, clientFormat)));
       }
     },
     flush(controller) {
       buffer += decoder.decode();
       if (buffer.trim()) {
-        const parsed = parseSSELine(buffer.trim(), upstreamFormat);
+        const parsed = parseSSELine(buffer.trim(), FORMATS.OPENAI);
         if (parsed && !parsed.done) {
-          const translated = translateResponse(upstreamFormat, clientFormat, parsed, state) || [];
+          const translated = translateResponse(FORMATS.OPENAI, clientFormat, parsed, state) || [];
           for (const item of translated) controller.enqueue(encoder.encode(formatSSE(item, clientFormat)));
         }
       }
@@ -69,7 +68,22 @@ function translateSSE(body, upstreamFormat, clientFormat) {
     },
   });
 
-  return body.pipeThrough(transform);
+  const reader = body.pipeThrough(transform).getReader();
+  return new ReadableStream({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      onCancel?.(reason);
+      await reader.cancel(reason);
+    },
+  });
 }
 
 export default {
@@ -80,6 +94,16 @@ export default {
       return Response.json({ ok: true, runtime: "worker" });
     }
 
+    if (incomingUrl.pathname === "/probe/local-only") {
+      try {
+        getExecutor("devin-cli");
+        return Response.json({ error: "local_only_executor_was_allowed" }, { status: 500 });
+      } catch (error) {
+        if (!(error instanceof RuntimeCapabilityError)) throw error;
+        return Response.json({ error: error.name, code: error.code }, { status: 403 });
+      }
+    }
+
     if (incomingUrl.pathname === "/probe/d1" && request.method === "POST") {
       if (!env.DB) return Response.json({ error: "missing_d1_binding" }, { status: 500 });
       const { key, value } = await request.json();
@@ -87,7 +111,7 @@ export default {
         .bind(key, value).run();
       const row = await env.DB.prepare("SELECT key, value FROM probe_records WHERE key = ?")
         .bind(key).first();
-      return Response.json({ row, executor: getWorkerExecutor("openai") });
+      return Response.json({ row, executor: getExecutor("openai").getProvider() });
     }
 
     if (incomingUrl.pathname !== "/v1/chat/completions" || request.method !== "POST") {
@@ -95,37 +119,54 @@ export default {
     }
     if (!env.UPSTREAM_ORIGIN) return Response.json({ error: "missing_upstream_origin" }, { status: 500 });
 
-    const upstreamFormat = request.headers.get("x-poc-upstream-format") === FORMATS.CLAUDE
-      ? FORMATS.CLAUDE
-      : FORMATS.OPENAI;
-    const clientFormat = request.headers.get("x-poc-client-format") === FORMATS.CLAUDE
-      ? FORMATS.CLAUDE
-      : FORMATS.OPENAI;
+    const clientFormat = request.headers.get("x-poc-client-format") === FORMATS.OPENAI
+      ? FORMATS.OPENAI
+      : FORMATS.CLAUDE;
     const payload = await request.json();
-    const upstreamPath = upstreamFormat === FORMATS.CLAUDE ? "/v1/messages" : "/v1/chat/completions";
+    const model = payload.model || "mock-model";
+    const credentials = {
+      apiKey: "mock-token",
+      runtimeTransport: {
+        baseUrl: env.UPSTREAM_ORIGIN,
+        urlSuffix: "/v1/chat/completions",
+        headers: { accept: payload.stream ? "text/event-stream" : "application/json" },
+      },
+    };
+    const executionAbort = new AbortController();
+    if (request.signal.aborted) executionAbort.abort(request.signal.reason);
+    else request.signal.addEventListener("abort", () => executionAbort.abort(request.signal.reason), { once: true });
 
     try {
-      const upstreamResponse = await fetch(new URL(upstreamPath, env.UPSTREAM_ORIGIN), {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: payload.stream ? "text/event-stream" : "application/json" },
-        body: JSON.stringify(payload),
-        signal: request.signal,
+      const translatedRequest = translateRequest(
+        clientFormat,
+        FORMATS.OPENAI,
+        model,
+        payload,
+        Boolean(payload.stream),
+        credentials,
+        "openai",
+      );
+      const { response: upstreamResponse } = await getExecutor("openai").execute({
+        model,
+        body: translatedRequest,
+        stream: Boolean(payload.stream),
+        credentials,
+        signal: executionAbort.signal,
       });
       if (!upstreamResponse.ok) return upstreamResponse;
-      if (upstreamFormat === clientFormat) return upstreamResponse;
+      if (clientFormat === FORMATS.OPENAI) return upstreamResponse;
 
+      const state = initState(clientFormat);
       if (!payload.stream) {
-        if (upstreamFormat !== FORMATS.OPENAI || clientFormat !== FORMATS.CLAUDE) return upstreamResponse;
-        const translated = translateJSONResponse(await upstreamResponse.json(), initState(clientFormat));
-        return Response.json(translated);
+        return Response.json(translateJSONResponse(await upstreamResponse.json(), state, clientFormat));
       }
 
-      return new Response(translateSSE(upstreamResponse.body, upstreamFormat, clientFormat), {
+      return new Response(translateSSE(upstreamResponse.body, clientFormat, () => executionAbort.abort()), {
         status: upstreamResponse.status,
         headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache" },
       });
     } catch (error) {
-      if (request.signal.aborted) throw error;
+      if (executionAbort.signal.aborted) throw error;
       return Response.json({ error: "upstream_unavailable" }, { status: 502, headers: jsonHeaders });
     }
   },
