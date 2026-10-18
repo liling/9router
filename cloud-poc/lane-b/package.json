@@ -1,0 +1,13 @@
+{
+  "name": "9router-cloud-poc-lane-b",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "d1:local": "wrangler d1 execute lane-b --local --file=migrations/0001_probe.sql",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
