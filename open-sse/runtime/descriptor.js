@@ -21,6 +21,17 @@ export function validateRuntimeDescriptor(descriptor) {
     if (descriptor.ports?.[key]?.available && typeof descriptor.ports[key].authoritative !== 'boolean') issues.push(`ports.${key}.authoritative is required`);
   }
   if (descriptor.ports?.ephemeral?.available && typeof descriptor.ports.ephemeral.shared !== 'boolean') issues.push('ports.ephemeral.shared is required');
+  for (const [portId, declaration] of Object.entries(descriptor.ports ?? {})) {
+    if (declaration.planned === undefined) continue;
+    const planned = declaration.planned;
+    if (!planned || typeof planned !== 'object' || typeof planned.adapter !== 'string' || !planned.adapter.trim() || typeof planned.note !== 'string') {
+      issues.push(`ports.${portId}.planned must declare adapter and note`);
+      continue;
+    }
+    for (const key of ['authoritative', 'shared']) {
+      if (planned[key] !== undefined && typeof planned[key] !== 'boolean') issues.push(`ports.${portId}.planned.${key} must be boolean`);
+    }
+  }
   return issues;
 }
 

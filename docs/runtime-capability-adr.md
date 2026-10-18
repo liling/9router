@@ -18,6 +18,8 @@ The closed v1 tag set is `http-fetch`, `http-proxy`, `mitm-dns`, `h2-duplex`, `n
 
 `RuntimeDescriptor` is frozen pure data: stable kebab-case `id`, display `label`, `kind`, `runtimeFamily`, lifecycle model and shutdown/cold-start flags, single/multi scale and sticky-session semantics, filesystem importability/writability/durability, background model/response-survival semantics, capability tags, and an availability declaration for each port. HTTP transport, persistence, and ephemeral ports additionally state whether they are authoritative; ephemeral storage states whether it is shared. `isServerless` is deliberately absent. Descriptor validation rejects incomplete structures and unknown tags.
 
+`ports.<id>.available: true` means that a real in-repository adapter exists in this phase and the profile's composition must supply it. This is a composition contract, not an indication that an API could be imported or that an adapter is planned. An available port without an adapter, or an adapter supplied for an unavailable port, fails composition. Future work is recorded separately as `ports.<id>.planned: { adapter, authoritative?, shared?, note }`; planned metadata is documentation only and is ignored by composition and capability matching. `capabilityTags` continue to describe environment facts, independently of which ports this phase implements.
+
 ## 4. Eight capability ports
 
 - `HttpTransport`: `fetch(url, options, proxyOptions?) -> Response`; supports direct, proxy, or relay behavior without wrapping Web APIs.
@@ -47,12 +49,14 @@ Core/Application depends on ports. Adapters may depend on vendor/runtime SDKs. C
 
 | Profile | Kind / family | Lifecycle; scale | Filesystem | Background | Important capabilities and authority |
 |---|---|---|---|---|---|
-| `local-node` | process / node | long-lived; single | persistent, durable | process timers survive response | proxy, MITM DNS, h2, Node streams, spawn/socket, stable timers; persistent DB and single-instance ephemeral state may be authoritative |
+| `local-node` | process / node | long-lived; single | persistent, durable | process timers survive response | proxy, MITM DNS, h2, Node streams, spawn/socket, stable timers; planned DB and single-instance ephemeral adapters can be authoritative |
 | `docker-node` | container / node | long-lived; single profile | volume-backed, durable only on mounted volume | process timers survive response | Shares Node adapter family with Cloud Run but is a separate profile; local process/socket and stable timers |
-| `cloud-run` | container / node | instance-restart; multi | filesystem importable but ephemeral and non-authoritative | process timers are not reliable for scheduled correctness | Node networking and h2; distributed persistence/ephemeral/lease needed across instances |
+| `cloud-run` | container / node | instance-restart; multi | filesystem importable but ephemeral and non-authoritative | best-effort instance timers; no response-survival guarantee | Node networking and h2; planned distributed persistence/ephemeral/lease adapters |
 | `vercel-node` | function / node | function-scoped; multi | importable but ephemeral and non-authoritative | bounded waitUntil; does not survive response reliably | fetch/Node streams; outbound proxy requires explicit relay adapter |
-| `cloudflare-worker` | isolate / workerd | isolate-scoped; multi | compatibility subset may import; no durable filesystem | bounded waitUntil | Web fetch; D1/KV/R2 are async external adapter options, not local filesystem |
+| `cloudflare-worker` | isolate / workerd | isolate-scoped; multi | compatibility subset may import; no durable filesystem | bounded waitUntil | Web fetch; D1/KV/R2 are planned async external adapters, not local filesystem |
 | `local-bun` | process / bun | long-lived; single | persistent, durable | process timers survive response | Local profile retained for Phase 1 smoke compatibility |
+
+For every profile above, the **foundation-phase available port set is only `httpTransport`**, with `authoritative: true`; the other ports are unavailable until their actual adapters are delivered. The persistence endpoints and local adapters described as planned in the table are target-state annotations, not current availability. Cloudflare Worker and Vercel background ports are permanently unavailable in this model because bounded `waitUntil` does not provide a durable scheduler; credential refresh uses lazy-on-read.
 
 Docker and Cloud Run share `runtimeFamily: node`, not lifecycle, scale, filesystem, or authority semantics. Vercel remains its own Node function profile. Cloudflare decisions use current compatibility semantics and distinguish importability from authoritative suitability rather than relying on an obsolete “no Node APIs” rule.
 
