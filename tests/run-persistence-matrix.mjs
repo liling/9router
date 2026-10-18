@@ -2,6 +2,15 @@ import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
+if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 5)) {
+  console.error(
+    `Persistence matrix requires Node.js 22.5 or newer for real SQLite coverage; ` +
+      `found ${process.versions.node}. Install Node.js 22.5+ and rerun: npm run test:persistence`,
+  );
+  process.exit(1);
+}
+
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(testsDir, '..');
 const commands = [

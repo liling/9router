@@ -1,8 +1,10 @@
 # Persistence boundary verification matrix
 
-From a clean checkout, use Node.js 20 or newer and Docker (the PostgreSQL
-contract starts an ephemeral PostgreSQL 16 container). Install each package's
-dependencies before running the matrix:
+From a clean checkout, use Node.js 22.5 or newer and Docker (the PostgreSQL
+contract starts an ephemeral PostgreSQL 16 container). Node.js 22.5+ is
+required for the real Node SQLite adapter tests; the matrix runner fails fast
+with setup guidance on older versions. Install each package's dependencies
+before running the matrix:
 
 ```sh
 cd tests
