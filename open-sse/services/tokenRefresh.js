@@ -1,5 +1,5 @@
 import { PROVIDERS } from "../config/providers.js";
-import { OAUTH_ENDPOINTS, REFRESH_LEAD_MS } from "../config/appConstants.js";
+import { OAUTH_ENDPOINTS } from "../config/appConstants.js";
 import {
   refreshXaiToken,
   refreshAccessToken,
@@ -45,6 +45,7 @@ export {
 };
 
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+export { getRefreshLeadMs } from "./credentialRefreshState.js";
 
 export function isUnrecoverableRefreshError(result) {
   return (
@@ -55,13 +56,6 @@ export function isUnrecoverableRefreshError(result) {
       result.error === "invalid_request" ||
       result.error === "invalid_grant")
   );
-}
-
-export function getRefreshLeadMs(provider) {
-  if (REFRESH_LEAD_MS[provider]) return REFRESH_LEAD_MS[provider];
-  // Legacy id after kimi-coding → kimi merge
-  if (provider === "kimi-coding" && REFRESH_LEAD_MS.kimi) return REFRESH_LEAD_MS.kimi;
-  return TOKEN_EXPIRY_BUFFER_MS;
 }
 
 export function parseVertexSaJson(apiKey) {
