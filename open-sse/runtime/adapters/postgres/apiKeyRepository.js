@@ -63,14 +63,32 @@ export function createPostgresApiKeyRepository(poolOptions) {
       }
     },
 
-    async update(record) {
+    async update(id, patch) {
+      const assignments = [];
+      const values = [];
+      const columns = {
+        key: 'key',
+        name: 'name',
+        machineId: 'machine_id',
+        isActive: 'is_active',
+      };
+      for (const [field, column] of Object.entries(columns)) {
+        if (!Object.hasOwn(patch, field)) continue;
+        values.push(patch[field]);
+        assignments.push(`${column} = $${values.length}`);
+      }
+      if (Object.hasOwn(patch, 'access')) {
+        values.push(patch.access.restricted, JSON.stringify(patch.access.allow || []));
+        assignments.push(`access_restricted = $${values.length - 1}`, `access_allow = $${values.length}::jsonb`);
+      }
       try {
-        const result = await pool.query(
-          `UPDATE api_keys SET key = $1, name = $2, machine_id = $3, is_active = $4, access_restricted = $5, access_allow = $6::jsonb WHERE id = $7 RETURNING ${COLUMNS}`,
-          [record.key, record.name, record.machineId, record.isActive, record.access.restricted,
-            JSON.stringify(record.access.allow || []), record.id],
-        );
-        if (!result.rows[0]) throw new PersistenceNotFoundError(`API key ${record.id} was not found`);
+        const result = assignments.length
+          ? await pool.query(
+            `UPDATE api_keys SET ${assignments.join(', ')} WHERE id = $${values.length + 1} RETURNING ${COLUMNS}`,
+            [...values, id],
+          )
+          : await pool.query(`SELECT ${COLUMNS} FROM api_keys WHERE id = $1`, [id]);
+        if (!result.rows[0]) throw new PersistenceNotFoundError(`API key ${id} was not found`);
         return rowToRecord(result.rows[0]);
       } catch (error) {
         if (error instanceof PersistenceNotFoundError) throw error;
