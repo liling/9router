@@ -1,0 +1,7 @@
+name = "9router-cloud-poc"
+main = "src/worker.js"
+compatibility_date = "2026-10-18"
+workers_dev = true
+
+[vars]
+UPSTREAM_ORIGIN = "http://127.0.0.1:8788"
