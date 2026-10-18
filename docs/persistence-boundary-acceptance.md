@@ -26,8 +26,17 @@ Each value was pushed and read back from the integration ref before proceeding t
 
 ## Baseline differential
 
-The checked-in `tests/__baseline__/known-fails.txt` contains 24 known test identities. The accompanying historical `baseline-results.json` is not an exact differential oracle for this checkout: it records 209 suites / 26 failed tests, while the current full Vitest run collected 1,198 suites / 3,824 tests and reported 117 failures. Of those current failing test identities, 14 match the 24-item known-failure list, 10 listed failures now pass, and 103 failures are not in that list. Therefore the full-corpus differential is not clean; this PR does not claim those additional failures are pre-existing or caused by persistence. They are outside the reviewed persistence scope and require baseline reconciliation before an unconditional pass.
+The checked-in `tests/__baseline__/known-fails.txt` and historical
+`baseline-results.json` do not provide a same-revision full-suite comparison.
+No trustworthy full-run identity artifact or run metadata was retained for
+this PR, so its full-corpus differential is unverified and cannot support
+failure counts or attribution. In particular, no unmatched failure is
+characterized as pre-existing or persistence-caused. Retain the conditional
+verdict until a same-revision baseline and current run identities can be
+captured and reconciled.
 
 The root dependency limitation was not silently skipped. After `cd tests && npm ci`, the persistence suite initially could not resolve root `pg`. The root project has no lockfile; application dependencies were provisioned with `npm install --no-save --package-lock=false --ignore-scripts`, after which all persistence and focused guards passed. This also supplied root `uuid` for application tests. No package lock was generated or modified.
 
-The conditional verdict is limited to this unresolved full-corpus differential. It is not a claim that the 103 unmatched failures are baseline failures. Human Acceptance and any later merge from `runtime/persistence-boundary` to `serverless-architecture` remain separate gates.
+The conditional verdict is limited to this unverified full-corpus differential.
+Human Acceptance and any later merge from `runtime/persistence-boundary` to
+`serverless-architecture` remain separate gates.

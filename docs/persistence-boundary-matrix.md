@@ -1,10 +1,19 @@
 # Persistence boundary verification matrix
 
-Run the persistence matrix after installing the test and application dependencies:
+From a clean checkout, use Node.js 20 or newer and Docker (the PostgreSQL
+contract starts an ephemeral PostgreSQL 16 container). Install each package's
+dependencies before running the matrix:
 
 ```sh
 cd tests
 npm ci
+cd ../cloud-poc
+npm ci
+cd ..
+# The root has no lockfile; these root runtime dependencies are needed by
+# adapter/application tests. Do not create or commit a root lockfile for this.
+npm install --no-save --package-lock=false --ignore-scripts pg uuid
+cd tests
 npm run test:persistence
 ```
 
@@ -18,4 +27,10 @@ The runner covers all three adapters:
 
 SQLite and PostgreSQL run the shared `apiKeyRepositoryContract`, including disjoint concurrent patch preservation. The Workerd/D1 test exercises the corresponding behaviors against local D1 and also checks the deployable Worker rejects all unauthenticated API-key probe operations.
 
-The `tests` package lock installs Vitest, not the root application's runtime dependencies. The PostgreSQL adapter imports the root-declared `pg` package, and some unrelated application tests import root-declared `uuid`. The root project has no lockfile, so `cd tests && npm ci` alone cannot provision those packages. Install the root application dependencies using the workspace's supported package-manager setup before running the matrix. In the acceptance run, root dependencies were provisioned without creating a lockfile; the initial missing-`pg` resolution failure was corrected before the persistence suite was accepted.
+The `tests` package lock installs Vitest, not the root application's runtime
+dependencies. The PostgreSQL adapter and some application tests resolve root
+`pg` and `uuid`, respectively. The root has no lockfile, so `tests` and
+`cloud-poc` installs do not provision them; the command above installs these
+two needed packages without creating a root lockfile. `cloud-poc npm ci` is
+also required because its Workerd test invokes Wrangler from its local
+development dependencies.
