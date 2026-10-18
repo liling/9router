@@ -2,6 +2,7 @@ import {
   PersistenceConflictError,
   PersistenceNotFoundError,
 } from "../../../../open-sse/runtime/ports/persistence/errors.js";
+import { API_KEY_UPDATE_PATCH_FIELDS } from "../../../../open-sse/runtime/ports/persistence/apiKeyRepository.js";
 import { keyAccessFromColumns, keyAccessToColumns } from "../../../shared/utils/keyAccess.js";
 
 function rowToRecord(row) {
@@ -62,22 +63,29 @@ export function createSqliteApiKeyRepository(db) {
       };
     },
 
-    async update(record) {
-      const access = keyAccessToColumns(record.access);
-      let result;
+    async update(id, patch) {
       try {
-        result = db.run(
-          "UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?",
-          [record.key, record.name, record.machineId, record.isActive ? 1 : 0,
-            access.accessRestricted, access.accessAllow, record.id],
-        );
+        return db.transaction(() => {
+          const current = rowToRecord(db.get("SELECT * FROM apiKeys WHERE id = ?", [id]));
+          if (!current) throw new PersistenceNotFoundError(`API key ${id} was not found`);
+
+          const updated = { ...current };
+          for (const field of API_KEY_UPDATE_PATCH_FIELDS) {
+            if (Object.hasOwn(patch, field)) updated[field] = patch[field];
+          }
+          const access = keyAccessToColumns(updated.access);
+          const result = db.run(
+            "UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?",
+            [updated.key, updated.name, updated.machineId, updated.isActive ? 1 : 0,
+              access.accessRestricted, access.accessAllow, id],
+          );
+          if (!(result?.changes > 0)) throw new PersistenceNotFoundError(`API key ${id} was not found`);
+          return rowToRecord(db.get("SELECT * FROM apiKeys WHERE id = ?", [id]));
+        });
       } catch (error) {
+        if (error instanceof PersistenceNotFoundError) throw error;
         mapConflict(error);
       }
-      if (!(result?.changes > 0)) {
-        throw new PersistenceNotFoundError(`API key ${record.id} was not found`);
-      }
-      return rowToRecord(db.get("SELECT * FROM apiKeys WHERE id = ?", [record.id]));
     },
 
     async delete(id) {

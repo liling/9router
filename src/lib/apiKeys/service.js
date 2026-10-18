@@ -20,11 +20,9 @@ export function createApiKeyService(repository, { createId, generateKey, now }) 
       });
     },
 
-    async updateApiKey(id, data) {
-      const existing = await repository.findById(id);
-      if (!existing) return null;
+    async updateApiKey(id, patch) {
       try {
-        return await repository.update({ ...existing, ...data, id });
+        return await repository.update(id, patch);
       } catch (error) {
         if (error instanceof PersistenceNotFoundError) return null;
         throw error;

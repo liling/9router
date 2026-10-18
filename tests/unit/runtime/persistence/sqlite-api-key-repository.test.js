@@ -134,6 +134,22 @@ if (nodeHasBuiltinSqlite) {
   });
 }
 
+describe("API-key service patch delegation", () => {
+  it("delegates update patches without reading the current record", async () => {
+    const patch = { isActive: false };
+    const updated = { id: "delegated-id", ...patch };
+    const repository = {
+      findById: vi.fn(),
+      update: vi.fn().mockResolvedValue(updated),
+    };
+    const service = createApiKeyService(repository, {});
+
+    await expect(service.updateApiKey("delegated-id", patch)).resolves.toEqual(updated);
+    expect(repository.update).toHaveBeenCalledWith("delegated-id", patch);
+    expect(repository.findById).not.toHaveBeenCalled();
+  });
+});
+
 describe.skipIf(!bunAvailable)("API-key SQLite adapter under Bun", () => {
   it("uses the same async service contract with bun:sqlite", () => {
     const script = `
