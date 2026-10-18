@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getWorkerExecutor, excludedLocalProviders } from "../src/worker-executors.js";
+import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
 import worker from "../src/worker.js";
 
-test("Worker registry excludes Local-only executors", () => {
-  assert.deepEqual(getWorkerExecutor("openai"), { kind: "fetch", provider: "openai" });
-  assert.deepEqual(getWorkerExecutor("anthropic"), { kind: "fetch", provider: "anthropic" });
-  for (const provider of excludedLocalProviders) {
-    assert.throws(() => getWorkerExecutor(provider), /not registered for Workers/);
-  }
+test("production serverless registry excludes Local-only executors", () => {
+  assert.equal(getExecutor("openai").constructor.name, "DefaultExecutor");
+  assert.throws(() => getExecutor("devin-cli"), RuntimeCapabilityError);
 });
 
 test("D1 probe asynchronously writes and reads through its binding", async () => {
@@ -48,7 +45,7 @@ test("D1 probe asynchronously writes and reads through its binding", async () =>
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     row: { key: "test-key", value: "test-value" },
-    executor: { kind: "fetch", provider: "openai" },
+    executor: "openai",
   });
   assert.match(statements[0].sql, /^INSERT/);
   assert.match(statements[1].sql, /^SELECT/);

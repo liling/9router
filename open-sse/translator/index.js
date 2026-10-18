@@ -29,7 +29,7 @@ export function register(from, to, requestFn, responseFn) {
   }
 }
 
-// No-op: translators self-register via the static imports at the bottom of this file.
+// Translators register through an explicit entrypoint; importing this core stays registry-neutral.
 function ensureInitialized() {}
 
 // Strip specific content types from messages (explicit opt-in via strip[] in PROVIDER_MODELS)

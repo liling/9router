@@ -1,62 +1,23 @@
 import {
-  getRefreshLeadMs,
   isUnrecoverableRefreshError,
   refreshTokenByProvider,
 } from "./tokenRefresh.js";
 import { PROVIDER_OAUTH } from "../providers/index.js";
 
-// Single source: codex.oauth.maxRefreshAgeMs (8 days) — proactive refresh window
-export const CODEX_MAX_REFRESH_AGE_MS = PROVIDER_OAUTH["codex"]?.maxRefreshAgeMs;
+export {
+  CODEX_MAX_REFRESH_AGE_MS,
+  getCredentialExpiryMs,
+  getCredentialLastRefreshMs,
+  getRefreshLeadMs,
+  isCodexRefreshStale,
+  shouldRefreshCredentials,
+} from "./credentialRefreshState.js";
 
 const refreshLocks = new Map();
-
-function parseTimeMs(value) {
-  if (value === undefined || value === null || value === "") return null;
-  if (typeof value === "number") {
-    return value < 1e12 ? value * 1000 : value;
-  }
-
-  const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 function toExpiresAt(expiresIn, nowMs = Date.now()) {
   if (!expiresIn) return null;
   return new Date(nowMs + expiresIn * 1000).toISOString();
-}
-
-export function getCredentialExpiryMs(credentials) {
-  return parseTimeMs(credentials?.expiresAt ?? credentials?.tokenExpiresAt);
-}
-
-export function getCredentialLastRefreshMs(credentials) {
-  return parseTimeMs(
-    credentials?.lastRefreshAt ??
-    credentials?.lastRefresh ??
-    credentials?.providerSpecificData?.lastRefreshAt
-  );
-}
-
-export function isCodexRefreshStale(credentials, nowMs = Date.now(), maxAgeMs = CODEX_MAX_REFRESH_AGE_MS) {
-  const lastRefreshMs = getCredentialLastRefreshMs(credentials);
-  return !lastRefreshMs || nowMs - lastRefreshMs >= maxAgeMs;
-}
-
-export function shouldRefreshCredentials(provider, credentials, nowMs = Date.now()) {
-  if (!credentials) return false;
-
-  const expiresAtMs = getCredentialExpiryMs(credentials);
-  if (expiresAtMs !== null && expiresAtMs - nowMs < getRefreshLeadMs(provider)) {
-    return true;
-  }
-
-  // Proactive stale refresh for providers declaring oauth.maxRefreshAgeMs (e.g. codex)
-  const maxAgeMs = PROVIDER_OAUTH[provider]?.maxRefreshAgeMs;
-  if (maxAgeMs && credentials.refreshToken && isCodexRefreshStale(credentials, nowMs, maxAgeMs)) {
-    return true;
-  }
-
-  return false;
 }
 
 export function mergeProviderSpecificData(existing, next) {

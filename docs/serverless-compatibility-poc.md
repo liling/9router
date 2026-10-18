@@ -119,6 +119,10 @@ ORDER BY start_ms;
 
 ## 下一阶段边界与 blockers
 
+## Local Bun profile（实测）
+
+在 Bun 1.4.2 与 Node v24.21.0 下，`buildKimiHeaders()["X-Msh-Version"]` 均返回 package.json 的真实版本 `0.5.104`，不是 `0.0.0`。Bun 下显式导入 `translator/register-all.js` 后，Core `translateRequest` 的 OpenAI→Claude smoke 通过。另有测试覆盖 `process.getBuiltinModule` 不可用时以 `npm_package_version` 解析版本的 fallback。当前证据支持 Bun 与 Node 的 Local profile；不代表 Worker profile 或所有 Bun 部署方式均已验证。
+
 1. 按 C2 式边界提取 runtime-neutral executor 子集，明确定义 Worker/Node capability contract，并用 bundle 检查确保 Local-only executor 不进入 Worker bundle；不重写每个 executor。
 2. 单独设计异步 persistence interface，评估 D1 transaction/consistency/migration 语义；不伪装同步 adapter 兼容。
 3. 增量评估 request translator registry 与 image concerns 的 Worker 兼容性；当前已运行的 response translator 双向路径继续保留测试。

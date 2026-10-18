@@ -4,8 +4,15 @@ import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
 import { OPENCODE_FINGERPRINT_TOOLS } from "../../open-sse/utils/opencodeFingerprint.js";
 
+const { fetchMock } = vi.hoisted(() => ({
+  fetchMock: vi.fn(async () => ({ ok: true, status: 200, headers: { get: () => "" } })),
+}));
+
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
-  proxyAwareFetch: vi.fn(async () => ({ ok: true, status: 200, headers: { get: () => "" } })),
+  proxyAwareFetch: fetchMock,
+}));
+vi.mock("../../open-sse/utils/executorFetch.js", () => ({
+  executorFetch: fetchMock,
 }));
 
 // Break caught: opencode/muse-spark-1.3-contributor-free 400 vì upstream
