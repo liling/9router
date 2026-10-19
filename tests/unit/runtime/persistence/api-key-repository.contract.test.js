@@ -42,7 +42,7 @@ function createMemoryRepository() {
   };
 }
 
-apiKeyRepositoryContract(async () => createMemoryRepository());
+apiKeyRepositoryContract(async () => createMemoryRepository(), { describe, it });
 
 describe('ApiKeyRepository port', () => {
   it('declares only aggregate operations and accepts an asynchronous implementation', () => {

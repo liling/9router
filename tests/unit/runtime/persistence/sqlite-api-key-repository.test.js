@@ -58,7 +58,7 @@ if (nodeHasBuiltinSqlite) {
     if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  apiKeyRepositoryContract(async () => repository);
+  apiKeyRepositoryContract(async () => repository, { describe, it });
 
   describe("API-key application service over real Node SQLite", () => {
     it("orders equal creation timestamps by id for deterministic listings", async () => {
