@@ -44,6 +44,10 @@ describe('runtime capability contracts', () => {
       expect(profile.ports.scheduler.available).toBe(false);
     }
     expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral.planned.shared).toBe(true);
+    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({
+      available: false,
+      planned: { adapter: 'D1', shared: true, note: expect.stringContaining('until composed') },
+    });
     expect(RUNTIME_PROFILES['local-node'].ports.ephemeral.planned).toMatchObject({ authoritative: true, shared: false });
     expect(RUNTIME_PROFILES['cloud-run'].ports.backgroundTasks.planned.note).toMatch(/Best-effort/);
     expect(RUNTIME_PROFILES['cloudflare-worker'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
