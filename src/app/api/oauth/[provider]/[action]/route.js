@@ -14,11 +14,15 @@ import {
   stopCodexProxy,
   registerCodexSession,
   getCodexSessionStatus,
+  consumeCodexSession,
+  consumePendingCodexSession,
   clearCodexSession,
   startXaiProxy,
   stopXaiProxy,
   registerXaiSession,
   getXaiSessionStatus,
+  consumeXaiSession,
+  consumePendingXaiSession,
   clearXaiSession,
   startTraeProxy,
   stopTraeProxy,
@@ -45,7 +49,7 @@ import { detectIdeInstalled } from "@/lib/oauth/utils/ideDetect";
 import { ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
 
 async function completeXaiManualCode(code, state) {
-  const session = state ? getXaiSessionStatus(state) : null;
+  const session = state ? await consumePendingXaiSession(state) : null;
   if (!session) {
     throw new Error("xAI OAuth session not found; restart the login flow and paste the code again");
   }
@@ -68,7 +72,6 @@ async function completeXaiManualCode(code, state) {
         : null,
       testStatus: "active",
     });
-    clearXaiSession(state);
     stopXaiProxy();
     return {
       id: connection.id,
@@ -77,7 +80,6 @@ async function completeXaiManualCode(code, state) {
       displayName: connection.displayName,
     };
   } catch (err) {
-    clearXaiSession(state);
     stopXaiProxy();
     throw err;
   }
@@ -173,8 +175,8 @@ export async function GET(request, { params }) {
       let serverSide = false;
       if (result.success && state && codeVerifier && redirectUri) {
         serverSide = provider === "xai"
-          ? registerXaiSession({ state, codeVerifier, redirectUri })
-          : registerCodexSession({ state, codeVerifier, redirectUri });
+          ? await registerXaiSession({ state, codeVerifier, redirectUri })
+          : await registerCodexSession({ state, codeVerifier, redirectUri });
       }
       return NextResponse.json({ ...result, serverSide });
     }
@@ -188,13 +190,19 @@ export async function GET(request, { params }) {
       if (provider === "trae") session = getTraeSessionStatus(state);
       else if (provider === "windsurf") session = getWindsurfSessionStatus(state);
       else if (provider === "zed") session = getZedSessionStatus(state);
-      else if (provider === "xai") session = getXaiSessionStatus(state);
-      else if (provider === "codex") session = getCodexSessionStatus(state);
+      else if (provider === "xai") session = await getXaiSessionStatus(state);
+      else if (provider === "codex") session = await getCodexSessionStatus(state);
       else if (provider === "xiaomi-mimo") session = getXiaomiMimoSessionStatus(state);
       else return NextResponse.json({ error: "Poll only supported for codex/xai/trae/windsurf/zed/xiaomi-mimo" }, { status: 400 });
       if (!session) return NextResponse.json({ status: "unknown" });
       if (session.status === "done" || session.status === "error") {
-        const payload = { ...session };
+        const terminalSession = provider === "xai"
+          ? await consumeXaiSession(state)
+          : provider === "codex"
+            ? await consumeCodexSession(state)
+            : session;
+        if (!terminalSession) return NextResponse.json({ status: "unknown" });
+        const payload = { ...terminalSession };
         if (provider === "xiaomi-mimo") {
           // Unlike the others this does not auto-exchange server-side, so a
           // finished session must survive until the client POSTs /exchange —
@@ -208,8 +216,8 @@ export async function GET(request, { params }) {
         if (provider === "trae") clearTraeSession(state);
         else if (provider === "windsurf") clearWindsurfSession(state);
         else if (provider === "zed") clearZedSession(state);
-        else if (provider === "xai") clearXaiSession(state);
-        else clearCodexSession(state);
+        else if (provider === "xai") await clearXaiSession(state);
+        else if (provider === "codex") await clearCodexSession(state);
         return NextResponse.json(payload);
       }
       return NextResponse.json({ status: session.status });

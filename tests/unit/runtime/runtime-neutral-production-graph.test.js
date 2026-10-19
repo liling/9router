@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,7 +44,7 @@ function resolveLocalImport(fromFile, specifier) {
     candidates.push(`${basePath}.js`, `${basePath}.mjs`, `${basePath}.cjs`, `${basePath}.json`);
     candidates.push(join(basePath, 'index.js'), join(basePath, 'index.mjs'));
   }
-  return candidates.find((candidate) => existsSync(candidate));
+  return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
 }
 
 function getImportSpecifiers(source) {
@@ -55,8 +55,8 @@ function getImportSpecifiers(source) {
   ];
 }
 
-async function collectProductionGraph() {
-  const pending = roots.map((root) => resolve(repoRoot, root));
+async function collectProductionGraph(graphRoots = roots) {
+  const pending = graphRoots.map((root) => resolve(repoRoot, root));
   const visited = new Set();
   const forbiddenPaths = new Set();
   const forbiddenExternals = new Set();
@@ -97,5 +97,24 @@ describe('runtime-neutral production graph (reachable closure of declared roots)
     expect([...graph.forbiddenPaths]).toEqual([]);
     expect([...graph.forbiddenExternals]).toEqual([]);
     expect([...graph.externalSpecifiers].filter((specifier) => !externalAllowlist.has(specifier))).toEqual([]);
+  });
+
+  it('keeps the OAuth application consumer independent of runtime EphemeralStore adapters', async () => {
+    const oauthConsumerRoots = [
+      'src/app/api/oauth/[provider]/[action]/route.js',
+      'src/lib/oauth/utils/server.js',
+    ];
+    const oauthGraph = await collectProductionGraph(oauthConsumerRoots);
+    const reachableEphemeralAdapters = [...oauthGraph.visited]
+      .map((file) => file.slice(repoRoot.length + 1).replaceAll('\\', '/'))
+      .filter((file) => file === 'open-sse/runtime/adapters/localEphemeralStore.js'
+        || file === 'open-sse/runtime/adapters/d1/ephemeralStore.js');
+    expect(reachableEphemeralAdapters).toEqual([]);
+    expect([...oauthGraph.forbiddenPaths].filter((file) => file.includes(': unresolved '))).toEqual([]);
+
+    for (const root of oauthConsumerRoots) {
+      const source = readFileSync(resolve(repoRoot, root), 'utf8');
+      expect(source).not.toMatch(/\bif\s*\([^)]*\b(?:cloudflare|redis|local)\b/i);
+    }
   });
 });
