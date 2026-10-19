@@ -50,6 +50,22 @@
     "final": { "tests": 6, "passed": 6 },
     "interpretation": "The final-only full-suite failure did not reproduce in isolated reruns; its cause remains unresolved."
   },
+  "freshSerialPair": {
+    "order": ["acceptedBase", "postMergeIntegration"],
+    "baseReport": "serial1-base-vitest.json",
+    "finalReport": "serial1-final-vitest.json",
+    "comparison": "serial1-comparison.json",
+    "base": { "tests": 3806, "failed": 115, "pending": 98, "exitCode": 1 },
+    "final": { "tests": 3824, "failed": 115, "pending": 98, "exitCode": 1 },
+    "baseOnlyFailures": 0,
+    "finalOnlyFailures": 0,
+    "currentOnlyFailures": 0,
+    "goldenUrlHeader": {
+      "base": { "tests": 150, "failed": 0 },
+      "final": { "tests": 150, "failed": 0 }
+    },
+    "interpretation": "The prior final-only nested-suite identity and repeat-run UUID failures were not reproduced in this first clean serial pair. Keep the verdict conditional because the prior run-to-run discrepancy is not fully explained."
+  },
   "verdict": "PERSISTENCE_BOUNDARY_CONDITIONAL",
   "notes": [
     "The two UUID-bearing golden snapshot identities fail on both revisions in repeat full-suite reports, but pass on both initial clean-worktree reports after snapshots are generated. Treat as shared repeat-run instability, not an integration-only failure.",

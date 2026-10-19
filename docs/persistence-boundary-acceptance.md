@@ -73,7 +73,25 @@ The repeat comparison also found one final-only failure identity:
 `unit/translator-registration-contract.test.js :: translator registration
 contract passes focused translator golden and roundtrip suites`. It passed
 when that test file was rerun alone on both exact revisions, but the full-run
-identity remains unresolved and is not attributed to persistence. The
-machine-readable full-suite reports and both comparison outputs are retained
-beside the run manifest. Keep the verdict `PERSISTENCE_BOUNDARY_CONDITIONAL`
-until the final-only identity is reconciled; the differential is not clean.
+identity was not reproduced in the fresh serial pair described below and is
+not attributed to persistence.
+
+### Fresh serial pair
+
+To remove cross-run contention, a fresh clean-worktree pair was tested
+serially, base first and final second, with the same dependency installs,
+versions, and full-suite command. The pair reported base `3,806 / 115 failed /
+98 pending` and final `3,824 / 115 failed / 98 pending`; comparison found zero
+base-only and zero final-only failures. The two UUID golden cases passed in
+both first-run reports. See `serial1-base-vitest.json`,
+`serial1-final-vitest.json`, and `serial1-comparison.json`.
+
+This serial result does not erase the earlier repeat-run evidence: the two
+UUID cases failed on both revisions after test-generated snapshots existed,
+and one final-only nested-suite identity appeared once. That nested test
+passed isolated reruns on both SHAs and did not appear in the fresh serial
+pair. The run-to-run discrepancy is still not fully explained, so preserve
+`PERSISTENCE_BOUNDARY_CONDITIONAL`; do not treat a single clean serial pair as
+proof that the intermittent identity cannot recur. All run reports and
+comparison outputs, including initial and repeated runs, are retained beside
+`post-merge-run.json`.
