@@ -11,7 +11,7 @@ export default createProfile({
   authoritativePorts: ['httpTransport'],
   plannedPorts: {
     persistence: { adapter: 'D1', authoritative: true, note: 'Planned async authoritative persistence adapter.' },
-    ephemeral: { adapter: 'KV/DO', shared: true, note: 'Planned shared ephemeral state adapter.' },
+    ephemeral: { adapter: 'D1', shared: true, note: 'D1 adapter exists; planned until composed into this profile.' },
     lease: { adapter: 'DO', note: 'Planned distributed lease adapter.' },
     secret: { adapter: 'env/KV', note: 'Planned secret provider.' },
     backgroundTasks: { adapter: 'ctx.waitUntil', note: 'Planned bounded, non-durable post-response work; credential refresh remains lazy-on-read.' },
