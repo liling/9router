@@ -6,6 +6,7 @@ export async function register() {
     const isServerless = Boolean(process.env.VERCEL || process.env.K_SERVICE || process.env.CF_PAGES);
     if (!isServerless) {
       installRuntime(composeRuntime("local-node", {
+        httpTransport: { fetch: globalThis.fetch.bind(globalThis) },
         ephemeral: createLocalEphemeralStore(),
       }));
     }
