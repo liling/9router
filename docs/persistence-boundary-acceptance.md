@@ -73,8 +73,8 @@ The repeat comparison also found one final-only failure identity:
 `unit/translator-registration-contract.test.js :: translator registration
 contract passes focused translator golden and roundtrip suites`. It passed
 when that test file was rerun alone on both exact revisions, but the full-run
-identity was not reproduced in the fresh serial pair described below and is
-not attributed to persistence.
+identity also failed on both sides of the fresh serial pair described below.
+It was not final-only in that pair and is not attributed to persistence.
 
 ### Fresh serial pair
 
@@ -88,9 +88,11 @@ both first-run reports. See `serial1-base-vitest.json`,
 
 This serial result does not erase the earlier repeat-run evidence: the two
 UUID cases failed on both revisions after test-generated snapshots existed,
-and one final-only nested-suite identity appeared once. That nested test
-passed isolated reruns on both SHAs and did not appear in the fresh serial
-pair. The run-to-run discrepancy is still not fully explained, so preserve
+and one final-only nested-suite identity appeared in the repeat pair. That
+nested test failed on both sides of the fresh serial pair, so it was not
+final-only there; it passed isolated reruns on both SHAs. The repeat-pair
+final-only occurrence remains unresolved run-to-run/test-order instability.
+Preserve
 `PERSISTENCE_BOUNDARY_CONDITIONAL`; do not treat a single clean serial pair as
 proof that the intermittent identity cannot recur. All run reports and
 comparison outputs, including initial and repeated runs, are retained beside

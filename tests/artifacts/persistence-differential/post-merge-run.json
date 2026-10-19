@@ -64,7 +64,7 @@
       "base": { "tests": 150, "failed": 0 },
       "final": { "tests": 150, "failed": 0 }
     },
-    "interpretation": "The prior final-only nested-suite identity and repeat-run UUID failures were not reproduced in this first clean serial pair. Keep the verdict conditional because the prior run-to-run discrepancy is not fully explained."
+    "interpretation": "The nested-suite identity failed on both sides of this fresh serial pair, so it was not final-only here. Its final-only occurrence in the repeat pair remains unresolved run-to-run/test-order instability; the repeat-run UUID failures were not reproduced in this pair. Keep the verdict conditional because the run-to-run discrepancy is not fully explained."
   },
   "verdict": "PERSISTENCE_BOUNDARY_CONDITIONAL",
   "notes": [
