@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createServer, request as httpRequest } from "node:http";
 import { once } from "node:events";
 import { dirname, resolve } from "node:path";
@@ -17,7 +17,14 @@ async function reservePort() {
   return port;
 }
 
-test("Wrangler Workerd runs the production JSON/SSE executor path end to end", async (context) => {
+test("deployable Worker does not expose API-key operations", async (context) => {
+  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "lane-b", "--local"], {
+    cwd: cloudPocDir,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" },
+  });
+  assert.equal(migrations.status, 0, migrations.stderr || migrations.stdout);
+
   let resolveUpstreamAbort;
   const upstreamAbort = new Promise((resolve) => { resolveUpstreamAbort = resolve; });
   let serverProcess;
@@ -100,6 +107,20 @@ test("Wrangler Workerd runs the production JSON/SSE executor path end to end", a
     }
   }
   assert.equal(ready, true, `Wrangler did not become ready:\n${logs}`);
+
+  async function d1ApiKey(operation, input = {}) {
+    const response = await fetch(`${workerOrigin}/probe/d1/api-keys`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ operation, ...input }),
+    });
+    return { response, body: await response.json() };
+  }
+
+  for (const operation of ["list", "findById", "findByKey", "insert", "update", "delete"]) {
+    const result = await d1ApiKey(operation, { id: "known-id", key: "known-key", record: { id: "probe", key: "secret" } });
+    assert.equal(result.response.status, 404, `${operation} unexpectedly reached the deployable Worker`);
+  }
 
   const jsonResponse = await fetch(`${workerOrigin}/v1/chat/completions`, {
     method: "POST",

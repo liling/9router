@@ -1,89 +1,34 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { getAdapter } from "../driver.js";
-import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
-import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
+import { createApiKeyService } from "../../apiKeys/service.js";
+import { createSqliteApiKeyRepository } from "../adapters/sqliteApiKeyRepository.js";
 
-function rowToKey(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    key: row.key,
-    name: row.name,
-    machineId: row.machineId,
-    isActive: row.isActive === 1 || row.isActive === true,
-    createdAt: row.createdAt,
-    access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
-  };
-}
+const services = new WeakMap();
 
-export async function getApiKeys() {
+async function getService() {
   const db = await getAdapter();
-  const rows = db.all(`SELECT * FROM apiKeys ORDER BY createdAt ASC`);
-  return rows.map(rowToKey);
+  let service = services.get(db);
+  if (!service) {
+    service = createApiKeyService(createSqliteApiKeyRepository(db), {
+      createId: randomUUID,
+      generateKey: async (machineId) => {
+        const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
+        return generateApiKeyWithMachine(machineId);
+      },
+      now: () => new Date().toISOString(),
+    });
+    services.set(db, service);
+  }
+  return service;
 }
 
-export async function getApiKeyById(id) {
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]);
-  return rowToKey(row);
-}
-
-// Used by the /v1 handlers to read the presented key's access settings.
-export async function getApiKeyByKey(key) {
-  if (!key) return null;
-  const db = await getAdapter();
-  const row = db.get(`SELECT * FROM apiKeys WHERE key = ?`, [key]);
-  return rowToKey(row);
-}
-
+export async function getApiKeys() { return (await getService()).getApiKeys(); }
+export async function getApiKeyById(id) { return (await getService()).getApiKeyById(id); }
+export async function getApiKeyByKey(key) { return (await getService()).getApiKeyByKey(key); }
 export async function createApiKey(name, machineId) {
   if (!machineId) throw new Error("machineId is required");
-  const db = await getAdapter();
-  const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
-  const result = generateApiKeyWithMachine(machineId);
-  const apiKey = {
-    id: uuidv4(),
-    name,
-    key: result.key,
-    machineId,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    access: { restricted: false, allow: [] },
-  };
-  const cols = keyAccessToColumns(KEY_ACCESS_UNRESTRICTED);
-  db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, accessRestricted, accessAllow) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-    [apiKey.id, apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, cols.accessRestricted, cols.accessAllow]
-  );
-  return apiKey;
+  return (await getService()).createApiKey(name, machineId);
 }
-
-export async function updateApiKey(id, data) {
-  const db = await getAdapter();
-  let result = null;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]);
-    if (!row) return;
-    const merged = { ...rowToKey(row), ...data };
-    const cols = keyAccessToColumns(merged.access);
-    db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
-      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, cols.accessRestricted, cols.accessAllow, id]
-    );
-    result = rowToKey(db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
-  });
-  return result;
-}
-
-export async function deleteApiKey(id) {
-  const db = await getAdapter();
-  const res = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id]);
-  return (res?.changes ?? 0) > 0;
-}
-
-export async function validateApiKey(key) {
-  const db = await getAdapter();
-  const row = db.get(`SELECT isActive FROM apiKeys WHERE key = ?`, [key]);
-  if (!row) return false;
-  return row.isActive === 1 || row.isActive === true;
-}
+export async function updateApiKey(id, data) { return (await getService()).updateApiKey(id, data); }
+export async function deleteApiKey(id) { return (await getService()).deleteApiKey(id); }
+export async function validateApiKey(key) { return (await getService()).validateApiKey(key); }

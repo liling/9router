@@ -35,6 +35,7 @@ describe('runtime capability contracts', () => {
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(['httpTransport']);
       expect(profile.ports.httpTransport.authoritative).toBe(true);
+      expect(profile.ports.persistence).toMatchObject({ available: false, authoritative: false, planned: expect.any(Object) });
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].planned)).toEqual(expectedPlannedPorts[id]);
     }
     expect(Object.keys(RUNTIME_PROFILES['local-node'].ports)).toHaveLength(9);
