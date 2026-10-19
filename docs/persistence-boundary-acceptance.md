@@ -24,19 +24,27 @@ Each value was pushed and read back from the integration ref before proceeding t
 - Runtime graph/dependency, executor, and profile-truth guards: passed, 15/15. The production graph includes the deployable Worker and API-key service roots; it rejects reachability into SQLite/D1/PostgreSQL adapters and their vendor drivers. Every runtime profile still marks persistence unavailable and planned.
 - `git diff --check`: passed for the PR-E diff.
 
-## Baseline differential
+## Same-environment full-suite differential
 
-The checked-in `tests/__baseline__/known-fails.txt` and historical
-`baseline-results.json` do not provide a same-revision full-suite comparison.
-No trustworthy full-run identity artifact or run metadata was retained for
-this PR, so its full-corpus differential is unverified and cannot support
-failure counts or attribution. In particular, no unmatched failure is
-characterized as pre-existing or persistence-caused. Retain the conditional
-verdict until a same-revision baseline and current run identities can be
-captured and reconciled.
+The differential compares the accepted base `cc544c470c84b20f4dd4643d69ee5c0d73c7fe7e`
+with final integration `13dcacb2bf127437e8d96e71c56ea81fbf174193`. Both clean
+detached worktrees used Node.js `v24.21.0` and npm `12.2.0`. Dependencies were
+installed identically with `cd tests && npm install --package-lock=false --ignore-scripts`
+and, at repository root, `npm install --no-save --package-lock=false --ignore-scripts`.
+The identical full-suite command was
+`npm exec -- vitest run --reporter=json --outputFile=<report-path>`.
 
-The root dependency limitation was not silently skipped. After `cd tests && npm ci`, the persistence suite initially could not resolve root `pg`. The root project has no lockfile; application dependencies were provisioned with `npm install --no-save --package-lock=false --ignore-scripts`, after which all persistence and focused guards passed. This also supplied root `uuid` for application tests. No package lock was generated or modified.
+| Revision | Tests | Failed | Pending |
+| --- | ---: | ---: | ---: |
+| Accepted base | 3,806 | 115 | 98 |
+| Final integration | 3,824 | 115 | 98 |
 
-The conditional verdict is limited to this unverified full-corpus differential.
+The failed-test identity sets match: base-only 0, final-only 0, and current-only
+failures 0. The raw Vitest JSON reports are retained in
+`tests/artifacts/persistence-differential/`. Reconcile them with
+`node tests/compare-vitest-reports.mjs tests/artifacts/persistence-differential/base-vitest.json tests/artifacts/persistence-differential/final-vitest.json`.
+
+This establishes no newly failing test identity in the final integration; it
+does not claim that the existing 115 failures pass or establish their cause.
 Human Acceptance and any later merge from `runtime/persistence-boundary` to
 `serverless-architecture` remain separate gates.
