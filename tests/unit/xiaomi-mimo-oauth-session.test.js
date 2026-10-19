@@ -48,8 +48,12 @@ vi.mock("@/lib/oauth/utils/server", () => {
   return {
     startCodexProxy: notUsed, stopCodexProxy: noop, registerCodexSession: noop,
     getCodexSessionStatus: () => null, clearCodexSession: noop,
+    consumeCodexSession: async () => null,
+    consumePendingCodexSession: async () => null,
     startXaiProxy: notUsed, stopXaiProxy: noop, registerXaiSession: noop,
     getXaiSessionStatus: () => null, clearXaiSession: noop,
+    consumeXaiSession: async () => null,
+    consumePendingXaiSession: async () => null,
     startTraeProxy: notUsed, stopTraeProxy: noop, registerTraeSession: noop,
     getTraeSessionStatus: () => null, clearTraeSession: noop,
     startWindsurfProxy: notUsed, stopWindsurfProxy: noop, registerWindsurfSession: noop,

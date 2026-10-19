@@ -28,12 +28,13 @@ describe('runtime capability contracts', () => {
       'cloudflare-worker': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob'],
       'cloud-run': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'vercel-node': ['persistence', 'ephemeral', 'secret', 'backgroundTasks', 'scheduler'],
-      'local-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
+      'local-node': ['persistence', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'docker-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'local-bun': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
     };
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
-      expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(['httpTransport']);
+      const expectedAvailablePorts = id === 'local-node' ? ['httpTransport', 'ephemeral'] : ['httpTransport'];
+      expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(expectedAvailablePorts);
       expect(profile.ports.httpTransport.authoritative).toBe(true);
       expect(profile.ports.persistence).toMatchObject({ available: false, authoritative: false, planned: expect.any(Object) });
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].planned)).toEqual(expectedPlannedPorts[id]);
@@ -44,7 +45,8 @@ describe('runtime capability contracts', () => {
       expect(profile.ports.scheduler.available).toBe(false);
     }
     expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral.planned.shared).toBe(true);
-    expect(RUNTIME_PROFILES['local-node'].ports.ephemeral.planned).toMatchObject({ authoritative: true, shared: false });
+    expect(RUNTIME_PROFILES['local-node'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: false });
+    expect(RUNTIME_PROFILES['cloud-run'].ports.ephemeral).toMatchObject({ available: false, planned: { shared: true } });
     expect(RUNTIME_PROFILES['cloud-run'].ports.backgroundTasks.planned.note).toMatch(/Best-effort/);
     expect(RUNTIME_PROFILES['cloudflare-worker'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
     expect(RUNTIME_PROFILES['vercel-node'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
@@ -73,7 +75,7 @@ describe('runtime capability contracts', () => {
   it('rejects supplied adapters for unavailable ports and missing adapters for available ports', () => {
     expect(() => composeRuntime('cloudflare-worker', { httpTransport: {}, persistence: {} })).toThrow(TypeError);
     const localNode = RUNTIME_PROFILES['local-node'];
-    expect(() => composeRuntime('local-node', { httpTransport: {} })).not.toThrow();
+    expect(() => composeRuntime('local-node', { httpTransport: {}, ephemeral: {} })).not.toThrow();
     const persistenceRequiredDescriptor = {
       ...localNode,
       id: 'local-node-with-required-persistence',
