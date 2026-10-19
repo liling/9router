@@ -2,15 +2,24 @@ import { createServer } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRuntime, resetRuntimeForTests } from '../../open-sse/runtime/context.js';
 
+const lifecycleMocks = vi.hoisted(() => ({
+  start: vi.fn(),
+  createTasks: vi.fn(() => ({ enqueue: vi.fn() })),
+  createScheduler: vi.fn(() => ({ schedule: vi.fn() })),
+}));
+
 vi.mock('@/lib/consoleLogBuffer', () => ({ initConsoleLogCapture: vi.fn() }));
-vi.mock('@/lib/modelCatalog/sync', () => ({ startModelCatalogSync: vi.fn() }));
+vi.mock('@/lib/modelCatalog/sync', () => ({ startModelCatalogSync: lifecycleMocks.start }));
 vi.mock('open-sse/providers/catalogOverride.js', () => ({ installCatalogSource: vi.fn() }));
+vi.mock('../../open-sse/runtime/adapters/localBackgroundTasks.js', () => ({ createLocalBackgroundTasks: lifecycleMocks.createTasks }));
+vi.mock('../../open-sse/runtime/adapters/localIntervalScheduler.js', () => ({ createLocalIntervalScheduler: lifecycleMocks.createScheduler }));
 
 const environmentKeys = ['NEXT_RUNTIME', 'VERCEL', 'K_SERVICE', 'CF_PAGES'];
 let originalEnvironment;
 
 describe('instrumentation register runtime composition', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     originalEnvironment = Object.fromEntries(environmentKeys.map((key) => [key, process.env[key]]));
     resetRuntimeForTests();
     for (const key of environmentKeys) delete process.env[key];
@@ -30,6 +39,12 @@ describe('instrumentation register runtime composition', () => {
     await register();
 
     expect(getRuntime().descriptor.id).toBe('local-node');
+    expect(lifecycleMocks.start).toHaveBeenCalledWith({
+      scheduler: expect.objectContaining({ schedule: expect.any(Function) }),
+    });
+    expect(lifecycleMocks.createScheduler).toHaveBeenCalledWith({
+      backgroundTasks: expect.objectContaining({ enqueue: expect.any(Function) }),
+    });
     const ephemeral = getRuntime().assertPort('ephemeral', { authoritative: true });
     await ephemeral.put('register-test', 'key', { value: 42 }, { ttlMs: 10_000, ifAbsent: true });
     await expect(ephemeral.put('register-test', 'key', { value: 43 }, { ttlMs: 10_000, ifAbsent: true })).rejects.toMatchObject({ code: 'EPHEMERAL_CONFLICT' });
@@ -59,6 +74,7 @@ describe('instrumentation register runtime composition', () => {
     const { register } = await import('../../src/instrumentation.js');
     await register();
     expect(() => getRuntime()).toThrow(expect.objectContaining({ code: 'RUNTIME_CONTEXT_NOT_INSTALLED' }));
+    expect(lifecycleMocks.start).not.toHaveBeenCalled();
   });
 
   it('does not install Local runtime for edge', async () => {

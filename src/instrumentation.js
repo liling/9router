@@ -1,10 +1,16 @@
 import { composeRuntime, installRuntime } from "open-sse/runtime/context.js";
 import { createLocalEphemeralStore } from "open-sse/runtime/adapters/localEphemeralStore.js";
+import { createLocalBackgroundTasks } from "open-sse/runtime/adapters/localBackgroundTasks.js";
+import { createLocalIntervalScheduler } from "open-sse/runtime/adapters/localIntervalScheduler.js";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const isServerless = Boolean(process.env.VERCEL || process.env.K_SERVICE || process.env.CF_PAGES);
+    let catalogLifecycle;
     if (!isServerless) {
+      const backgroundTasks = createLocalBackgroundTasks();
+      const scheduler = createLocalIntervalScheduler({ backgroundTasks });
+      catalogLifecycle = { scheduler };
       installRuntime(composeRuntime("local-node", {
         httpTransport: { fetch: globalThis.fetch.bind(globalThis) },
         ephemeral: createLocalEphemeralStore(),
@@ -19,6 +25,6 @@ export async function register() {
     await installCatalogSource();
 
     const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
-    startModelCatalogSync();
+    if (catalogLifecycle) startModelCatalogSync(catalogLifecycle);
   }
 }
