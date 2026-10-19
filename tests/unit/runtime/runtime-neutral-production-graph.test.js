@@ -57,18 +57,22 @@ function getImportSpecifiers(source) {
   ];
 }
 
-async function collectProductionGraph(graphRoots = roots) {
+async function collectProductionGraph(graphRoots = roots, sourceOverrides = new Map()) {
   const pending = graphRoots.map((root) => ({ file: resolve(repoRoot, root), root }));
   const visited = new Set();
+  const visitedByRoot = new Set();
   const forbiddenPaths = new Set();
   const forbiddenExternals = new Set();
   const externalSpecifiers = new Set();
 
   while (pending.length) {
     const { file: current, root } = pending.pop();
-    if (visited.has(current)) continue;
+    const traversalKey = `${root}\0${current}`;
+    if (visitedByRoot.has(traversalKey)) continue;
+    visitedByRoot.add(traversalKey);
     visited.add(current);
-    const source = readFileSync(current, 'utf8');
+    const relativeCurrent = current.slice(repoRoot.length + 1).replaceAll('\\', '/');
+    const source = sourceOverrides.get(relativeCurrent) ?? readFileSync(current, 'utf8');
 
     for (const specifier of getImportSpecifiers(source)) {
       const localPath = resolveLocalImport(current, specifier);
@@ -127,6 +131,16 @@ describe('runtime-neutral production graph (reachable closure of declared roots)
     const worker = readFileSync(resolve(repoRoot, 'cloud-poc/src/worker.js'), 'utf8');
     expect(worker).toMatch(/assertPort\(\s*['"]backgroundTasks['"]\s*\)/);
     expect(graph.visited.has(resolve(repoRoot, cloudflareBackgroundAdapter))).toBe(true);
+  });
+
+  it('rejects a non-composition root that reaches the worker and its Cloudflare adapter', async () => {
+    const syntheticRoot = 'tests/unit/runtime/__non-composition-graph-root.js';
+    const syntheticGraph = await collectProductionGraph([syntheticRoot], new Map([
+      [syntheticRoot, "import '../../../cloud-poc/src/worker.js';"],
+    ]));
+    expect([...syntheticGraph.forbiddenPaths]).toContain(
+      `${cloudflareBackgroundAdapter} imported from cloud-poc/src/worker.js`,
+    );
   });
 
   it('keeps the OAuth application consumer independent of runtime EphemeralStore adapters', async () => {
