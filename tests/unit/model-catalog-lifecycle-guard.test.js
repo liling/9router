@@ -13,9 +13,20 @@ describe('model catalog lifecycle boundary', () => {
     expect(source).not.toMatch(/\b(?:ExecutionContext|waitUntil)\b/);
   });
 
-  it('only injects Local lifecycle adapters from the non-serverless composition branch', () => {
+  it('only injects Local lifecycle adapters from the positive Local profile branch', () => {
     const source = readFileSync(resolve(repoRoot, 'src/instrumentation.js'), 'utf8');
-    expect(source).toMatch(/if\s*\(!isServerless\)\s*\{[\s\S]*?createLocalBackgroundTasks\(\)[\s\S]*?createLocalIntervalScheduler\(/);
+    expect(source).toMatch(/if\s*\(resolveRuntimeProfile\(\)\.isLocalPersistent\)\s*\{[\s\S]*?createLocalBackgroundTasks\(\)[\s\S]*?createLocalIntervalScheduler\(/);
     expect(source).toMatch(/if\s*\(catalogLifecycle\)\s*startModelCatalogSync\(catalogLifecycle\)/);
+    expect(source).toMatch(/if\s*\(!isServerless\)\s*\{\s*installRuntime\(/);
+  });
+
+  it('stamps the self-hosted entry only when no runtime profile was configured', () => {
+    const source = readFileSync(resolve(repoRoot, 'custom-server.js'), 'utf8');
+    expect(source).toContain('process.env.RUNTIME_PROFILE ||= "local-node";');
+  });
+
+  it('keeps deployment-vendor detection out of the catalog flow', () => {
+    const source = readFileSync(resolve(repoRoot, 'src/lib/modelCatalog/sync.js'), 'utf8');
+    expect(source).not.toMatch(/\b(?:VERCEL|CF_PAGES|K_SERVICE|ExecutionContext|waitUntil)\b/);
   });
 });

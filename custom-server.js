@@ -12,6 +12,7 @@ const origCreate = http.createServer.bind(http);
 // so the request-detail header sanitizer redacts it too.
 const PEER_TOKEN = crypto.randomBytes(24).toString("hex");
 process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
+process.env.RUNTIME_PROFILE ||= "local-node";
 
 let backgroundRefreshStarted = false;
 

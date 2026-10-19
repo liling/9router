@@ -2,15 +2,18 @@ import { composeRuntime, installRuntime } from "open-sse/runtime/context.js";
 import { createLocalEphemeralStore } from "open-sse/runtime/adapters/localEphemeralStore.js";
 import { createLocalBackgroundTasks } from "open-sse/runtime/adapters/localBackgroundTasks.js";
 import { createLocalIntervalScheduler } from "open-sse/runtime/adapters/localIntervalScheduler.js";
+import { resolveRuntimeProfile } from "@/lib/runtimeProfile.js";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const isServerless = Boolean(process.env.VERCEL || process.env.K_SERVICE || process.env.CF_PAGES);
     let catalogLifecycle;
-    if (!isServerless) {
+    if (resolveRuntimeProfile().isLocalPersistent) {
       const backgroundTasks = createLocalBackgroundTasks();
       const scheduler = createLocalIntervalScheduler({ backgroundTasks });
       catalogLifecycle = { scheduler };
+    }
+    if (!isServerless) {
       installRuntime(composeRuntime("local-node", {
         httpTransport: { fetch: globalThis.fetch.bind(globalThis) },
         ephemeral: createLocalEphemeralStore(),

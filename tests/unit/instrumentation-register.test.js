@@ -14,7 +14,7 @@ vi.mock('open-sse/providers/catalogOverride.js', () => ({ installCatalogSource: 
 vi.mock('../../open-sse/runtime/adapters/localBackgroundTasks.js', () => ({ createLocalBackgroundTasks: lifecycleMocks.createTasks }));
 vi.mock('../../open-sse/runtime/adapters/localIntervalScheduler.js', () => ({ createLocalIntervalScheduler: lifecycleMocks.createScheduler }));
 
-const environmentKeys = ['NEXT_RUNTIME', 'VERCEL', 'K_SERVICE', 'CF_PAGES'];
+const environmentKeys = ['NEXT_RUNTIME', 'VERCEL', 'K_SERVICE', 'CF_PAGES', 'RUNTIME_PROFILE', 'NODE_ENV'];
 let originalEnvironment;
 
 describe('instrumentation register runtime composition', () => {
@@ -35,6 +35,7 @@ describe('instrumentation register runtime composition', () => {
 
   it('installs Local Node with authoritative ephemeral storage and real HTTP fetch', async () => {
     process.env.NEXT_RUNTIME = 'nodejs';
+    process.env.RUNTIME_PROFILE = 'local-node';
     const { register } = await import('../../src/instrumentation.js');
     await register();
 
@@ -70,11 +71,36 @@ describe('instrumentation register runtime composition', () => {
 
   it.each(['VERCEL', 'K_SERVICE', 'CF_PAGES'])('does not install Local runtime under %s', async (key) => {
     process.env.NEXT_RUNTIME = 'nodejs';
+    process.env.NODE_ENV = 'production';
     process.env[key] = '1';
     const { register } = await import('../../src/instrumentation.js');
     await register();
     expect(() => getRuntime()).toThrow(expect.objectContaining({ code: 'RUNTIME_CONTEXT_NOT_INSTALLED' }));
     expect(lifecycleMocks.start).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['production profile unset', { NODE_ENV: 'production' }],
+    ['unknown explicit profile', { NODE_ENV: 'development', RUNTIME_PROFILE: 'custom-node' }],
+    ['Vercel profile without Vercel marker', { NODE_ENV: 'production', RUNTIME_PROFILE: 'vercel-node' }],
+    ['Pages profile without Pages marker', { NODE_ENV: 'production', RUNTIME_PROFILE: 'cloudflare-worker' }],
+    ['Local profile contradicted by Cloud Run', { NODE_ENV: 'production', RUNTIME_PROFILE: 'local-node', K_SERVICE: 'service' }],
+  ])('does not start catalog Scheduler for %s', async (_label, env) => {
+    process.env.NEXT_RUNTIME = 'nodejs';
+    Object.assign(process.env, env);
+    const { register } = await import('../../src/instrumentation.js');
+    await register();
+    expect(lifecycleMocks.start).not.toHaveBeenCalled();
+    expect(lifecycleMocks.createTasks).not.toHaveBeenCalled();
+  });
+
+  it.each(['vercel-node', 'cloudflare-worker', 'docker-node'])('only starts for an explicitly selected Local family profile (%s)', async (profile) => {
+    process.env.NEXT_RUNTIME = 'nodejs';
+    process.env.NODE_ENV = 'production';
+    process.env.RUNTIME_PROFILE = profile;
+    const { register } = await import('../../src/instrumentation.js');
+    await register();
+    expect(lifecycleMocks.start).toHaveBeenCalledTimes(profile === 'docker-node' ? 1 : 0);
   });
 
   it('does not install Local runtime for edge', async () => {
