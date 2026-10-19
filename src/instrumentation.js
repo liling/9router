@@ -6,18 +6,16 @@ import { resolveRuntimeProfile } from "@/lib/runtimeProfile.js";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const isServerless = Boolean(process.env.VERCEL || process.env.K_SERVICE || process.env.CF_PAGES);
+    const runtimeProfile = resolveRuntimeProfile();
     let catalogLifecycle;
-    if (resolveRuntimeProfile().isLocalPersistent) {
-      const backgroundTasks = createLocalBackgroundTasks();
-      const scheduler = createLocalIntervalScheduler({ backgroundTasks });
-      catalogLifecycle = { scheduler };
-    }
-    if (!isServerless) {
+    if (runtimeProfile.isLocalPersistent) {
       installRuntime(composeRuntime("local-node", {
         httpTransport: { fetch: globalThis.fetch.bind(globalThis) },
         ephemeral: createLocalEphemeralStore(),
       }));
+      const backgroundTasks = createLocalBackgroundTasks();
+      const scheduler = createLocalIntervalScheduler({ backgroundTasks });
+      catalogLifecycle = { scheduler };
     }
     const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
     initConsoleLogCapture();

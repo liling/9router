@@ -85,22 +85,51 @@ describe('instrumentation register runtime composition', () => {
     ['Vercel profile without Vercel marker', { NODE_ENV: 'production', RUNTIME_PROFILE: 'vercel-node' }],
     ['Pages profile without Pages marker', { NODE_ENV: 'production', RUNTIME_PROFILE: 'cloudflare-worker' }],
     ['Local profile contradicted by Cloud Run', { NODE_ENV: 'production', RUNTIME_PROFILE: 'local-node', K_SERVICE: 'service' }],
-  ])('does not start catalog Scheduler for %s', async (_label, env) => {
+  ])('fails closed for %s: no Local runtime or catalog Scheduler', async (_label, env) => {
     process.env.NEXT_RUNTIME = 'nodejs';
     Object.assign(process.env, env);
     const { register } = await import('../../src/instrumentation.js');
     await register();
+    expect(() => getRuntime()).toThrow(expect.objectContaining({ code: 'RUNTIME_CONTEXT_NOT_INSTALLED' }));
     expect(lifecycleMocks.start).not.toHaveBeenCalled();
     expect(lifecycleMocks.createTasks).not.toHaveBeenCalled();
   });
 
-  it.each(['vercel-node', 'cloudflare-worker', 'docker-node'])('only starts for an explicitly selected Local family profile (%s)', async (profile) => {
+  it.each(['local-node', 'local-bun', 'docker-node'])('installs Local runtime and starts catalog Scheduler for %s', async (profile) => {
     process.env.NEXT_RUNTIME = 'nodejs';
     process.env.NODE_ENV = 'production';
     process.env.RUNTIME_PROFILE = profile;
     const { register } = await import('../../src/instrumentation.js');
     await register();
-    expect(lifecycleMocks.start).toHaveBeenCalledTimes(profile === 'docker-node' ? 1 : 0);
+    expect(getRuntime().descriptor.id).toBe('local-node');
+    expect(lifecycleMocks.start).toHaveBeenCalledTimes(1);
+    expect(lifecycleMocks.createTasks).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['vercel-node', { VERCEL: '1' }],
+    ['cloudflare-worker', { CF_PAGES: '1' }],
+  ])('uses explicit non-Local profile %s regardless of vendor marker', async (profile, markers) => {
+    process.env.NEXT_RUNTIME = 'nodejs';
+    process.env.NODE_ENV = 'production';
+    process.env.RUNTIME_PROFILE = profile;
+    Object.assign(process.env, markers);
+    const { register } = await import('../../src/instrumentation.js');
+    await register();
+    expect(() => getRuntime()).toThrow(expect.objectContaining({ code: 'RUNTIME_CONTEXT_NOT_INSTALLED' }));
+    expect(lifecycleMocks.start).not.toHaveBeenCalled();
+    expect(lifecycleMocks.createTasks).not.toHaveBeenCalled();
+  });
+
+  it.each(['VERCEL', 'CF_PAGES'])('does not override explicit Local profile with %s marker', async (key) => {
+    process.env.NEXT_RUNTIME = 'nodejs';
+    process.env.NODE_ENV = 'production';
+    process.env.RUNTIME_PROFILE = 'local-node';
+    process.env[key] = '1';
+    const { register } = await import('../../src/instrumentation.js');
+    await register();
+    expect(getRuntime().descriptor.id).toBe('local-node');
+    expect(lifecycleMocks.start).toHaveBeenCalledTimes(1);
   });
 
   it('does not install Local runtime for edge', async () => {
@@ -108,5 +137,7 @@ describe('instrumentation register runtime composition', () => {
     const { register } = await import('../../src/instrumentation.js');
     await register();
     expect(() => getRuntime()).toThrow(expect.objectContaining({ code: 'RUNTIME_CONTEXT_NOT_INSTALLED' }));
+    expect(lifecycleMocks.start).not.toHaveBeenCalled();
+    expect(lifecycleMocks.createTasks).not.toHaveBeenCalled();
   });
 });

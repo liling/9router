@@ -15,9 +15,10 @@ describe('model catalog lifecycle boundary', () => {
 
   it('only injects Local lifecycle adapters from the positive Local profile branch', () => {
     const source = readFileSync(resolve(repoRoot, 'src/instrumentation.js'), 'utf8');
-    expect(source).toMatch(/if\s*\(resolveRuntimeProfile\(\)\.isLocalPersistent\)\s*\{[\s\S]*?createLocalBackgroundTasks\(\)[\s\S]*?createLocalIntervalScheduler\(/);
+    expect(source.match(/resolveRuntimeProfile\(\)/g)).toHaveLength(1);
+    expect(source).toMatch(/const runtimeProfile = resolveRuntimeProfile\(\);[\s\S]*?if\s*\(runtimeProfile\.isLocalPersistent\)\s*\{[\s\S]*?installRuntime\([\s\S]*?createLocalBackgroundTasks\(\)[\s\S]*?createLocalIntervalScheduler\(/);
     expect(source).toMatch(/if\s*\(catalogLifecycle\)\s*startModelCatalogSync\(catalogLifecycle\)/);
-    expect(source).toMatch(/if\s*\(!isServerless\)\s*\{\s*installRuntime\(/);
+    expect(source).not.toMatch(/isServerless|VERCEL|K_SERVICE|CF_PAGES/);
   });
 
   it('stamps the self-hosted entry only when no runtime profile was configured', () => {
