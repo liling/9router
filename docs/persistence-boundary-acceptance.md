@@ -24,7 +24,7 @@ Each value was pushed and read back from the integration ref before proceeding t
 - Runtime graph/dependency, executor, and profile-truth guards: passed, 15/15. The production graph includes the deployable Worker and API-key service roots; it rejects reachability into SQLite/D1/PostgreSQL adapters and their vendor drivers. Every runtime profile still marks persistence unavailable and planned.
 - `git diff --check`: passed for the PR-E diff.
 
-## Same-environment full-suite differential
+## Pre-merge same-environment full-suite differential (historical)
 
 The differential compares the accepted base `cc544c470c84b20f4dd4643d69ee5c0d73c7fe7e`
 with final integration `13dcacb2bf127437e8d96e71c56ea81fbf174193`. Both clean
@@ -48,3 +48,32 @@ This establishes no newly failing test identity in the final integration; it
 does not claim that the existing 115 failures pass or establish their cause.
 Human Acceptance and any later merge from `runtime/persistence-boundary` to
 `serverless-architecture` remain separate gates.
+
+## Post-merge differential refresh
+
+MEM-448 reran the same full Vitest command on clean detached worktrees at the
+accepted base `cc544c470c84b20f4dd4643d69ee5c0d73c7fe7e` and current merged
+integration `081e7d005b193a89e3828d4e6e559e4aa18aa662`. Both used Node
+`v24.21.0`, npm `12.2.0`, and Vitest `4.1.12`; each used the same tests and
+root dependency install commands recorded in
+`tests/artifacts/persistence-differential/post-merge-run.json`.
+
+The initial full-suite runs reported base `3,806 / 115 failed / 98 pending`
+and final `3,824 / 115 failed / 98 pending`; failure identity comparison found
+no base-only or final-only failures. On each clean checkout, the first run
+created an untracked golden snapshot. A second identical full-suite run with
+those generated snapshots present reported base `3,806 / 116 failed / 98
+pending` and final `3,824 / 117 failed / 98 pending`. The same two
+`translator/golden-url-header.test.js` Minimax Code header snapshot identities
+failed in both repeat reports. Their headers include a generated UUID which
+the test does not sanitize; they were not failures in either initial clean
+run. Thus they are repeat-run shared failures, not a stable clean-run result.
+
+The repeat comparison also found one final-only failure identity:
+`unit/translator-registration-contract.test.js :: translator registration
+contract passes focused translator golden and roundtrip suites`. It passed
+when that test file was rerun alone on both exact revisions, but the full-run
+identity remains unresolved and is not attributed to persistence. The
+machine-readable full-suite reports and both comparison outputs are retained
+beside the run manifest. Keep the verdict `PERSISTENCE_BOUNDARY_CONDITIONAL`
+until the final-only identity is reconciled; the differential is not clean.

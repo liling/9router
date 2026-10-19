@@ -1,0 +1,17 @@
+{
+  "base": {
+    "tests": 3806,
+    "failed": 116,
+    "pending": 98
+  },
+  "final": {
+    "tests": 3824,
+    "failed": 117,
+    "pending": 98
+  },
+  "baseOnlyFailures": [],
+  "finalOnlyFailures": [
+    "unit/translator-registration-contract.test.js :: translator registration contract passes focused translator golden and roundtrip suites"
+  ],
+  "currentOnlyFailures": 1
+}
