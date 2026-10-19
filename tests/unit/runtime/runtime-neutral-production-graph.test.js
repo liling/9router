@@ -21,6 +21,8 @@ const roots = [
   'src/lib/apiKeys/service.js',
   'cloud-poc/src/worker.js',
 ];
+const compositionRoots = new Set(['cloud-poc/src/worker.js']);
+const cloudflareBackgroundAdapter = 'open-sse/runtime/adapters/cloudflareBackgroundTasks.js';
 const externalAllowlist = new Set(['node:crypto', 'crypto', 'node:os', 'os']);
 const LOCAL_ONLY_EXEMPTIONS = [];
 const vendorPackages = new Set(['undici', 'better-sqlite3', 'sql.js', 'node-machine-id', 'pg', 'pg-native']);
@@ -56,14 +58,14 @@ function getImportSpecifiers(source) {
 }
 
 async function collectProductionGraph(graphRoots = roots) {
-  const pending = graphRoots.map((root) => resolve(repoRoot, root));
+  const pending = graphRoots.map((root) => ({ file: resolve(repoRoot, root), root }));
   const visited = new Set();
   const forbiddenPaths = new Set();
   const forbiddenExternals = new Set();
   const externalSpecifiers = new Set();
 
   while (pending.length) {
-    const current = pending.pop();
+    const { file: current, root } = pending.pop();
     if (visited.has(current)) continue;
     visited.add(current);
     const source = readFileSync(current, 'utf8');
@@ -72,8 +74,11 @@ async function collectProductionGraph(graphRoots = roots) {
       const localPath = resolveLocalImport(current, specifier);
       if (localPath) {
         const relativePath = localPath.slice(repoRoot.length + 1).replaceAll('\\', '/');
-        if (adapterPathPrefixes.some((prefix) => relativePath.startsWith(prefix))) forbiddenPaths.add(relativePath);
-        pending.push(localPath);
+        if (adapterPathPrefixes.some((prefix) => relativePath.startsWith(prefix))
+          && !(compositionRoots.has(root) && current === resolve(repoRoot, root))) {
+          forbiddenPaths.add(`${relativePath} imported from ${current.slice(repoRoot.length + 1)}`);
+        }
+        pending.push({ file: localPath, root });
       } else if (specifier.startsWith('.') || specifier.startsWith('open-sse/') || specifier.startsWith('@/')) {
         forbiddenPaths.add(`${current}: unresolved ${specifier}`);
       } else {
@@ -97,6 +102,31 @@ describe('runtime-neutral production graph (reachable closure of declared roots)
     expect([...graph.forbiddenPaths]).toEqual([]);
     expect([...graph.forbiddenExternals]).toEqual([]);
     expect([...graph.externalSpecifiers].filter((specifier) => !externalAllowlist.has(specifier))).toEqual([]);
+
+    for (const file of graph.visited) {
+      const relativePath = file.slice(repoRoot.length + 1).replaceAll('\\', '/');
+      const source = readFileSync(file, 'utf8');
+      const code = source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      if (relativePath !== cloudflareBackgroundAdapter
+        && !compositionRoots.has(relativePath)
+        && !relativePath.startsWith('open-sse/runtime/profiles/')) {
+        expect(code, `${relativePath} must not use Cloudflare lifecycle APIs`).not.toMatch(/\b(?:ExecutionContext|waitUntil)\b/);
+      }
+      if (relativePath.startsWith('open-sse/runtime/profiles/')) {
+        const lifecycleLines = code.split('\n').filter((line) => /\b(?:ExecutionContext|waitUntil)\b/.test(line));
+        expect(lifecycleLines.every((line) => /^\s*[\w]+:\s*[^,]*['"`][^'"`]*\b(?:ExecutionContext|waitUntil)\b/.test(line)), `${relativePath} may only describe lifecycle APIs as profile data`).toBe(true);
+      }
+      if (compositionRoots.has(relativePath)) {
+        const lifecycleLines = code.split('\n').filter((line) => /\b(?:ExecutionContext|waitUntil)\b/.test(line));
+        expect(lifecycleLines.every((line) => /^\s*import\b/.test(line)), `${relativePath} may only wire lifecycle APIs through imports`).toBe(true);
+      }
+    }
+
+    const worker = readFileSync(resolve(repoRoot, 'cloud-poc/src/worker.js'), 'utf8');
+    expect(worker).toMatch(/assertPort\(\s*['"]backgroundTasks['"]\s*\)/);
+    expect(graph.visited.has(resolve(repoRoot, cloudflareBackgroundAdapter))).toBe(true);
   });
 
   it('keeps the OAuth application consumer independent of runtime EphemeralStore adapters', async () => {
