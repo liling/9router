@@ -1,5 +1,14 @@
+import { composeRuntime, installRuntime } from "open-sse/runtime/context.js";
+import { createLocalEphemeralStore } from "open-sse/runtime/adapters/localEphemeralStore.js";
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const isServerless = Boolean(process.env.VERCEL || process.env.K_SERVICE || process.env.CF_PAGES);
+    if (!isServerless) {
+      installRuntime(composeRuntime("local-node", {
+        ephemeral: createLocalEphemeralStore(),
+      }));
+    }
     const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
     initConsoleLogCapture();
 

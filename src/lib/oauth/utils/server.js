@@ -1,6 +1,8 @@
 import http from "http";
 import { URL } from "url";
 import { CODEX_CONFIG, TRAE_CONFIG, WINDSURF_CONFIG, ZED_HOSTED_CONFIG } from "../constants/oauth.js";
+import { getRuntime } from "open-sse/runtime/context.js";
+import { EphemeralStoreConflictError } from "open-sse/runtime/ports/ephemeralStore.js";
 
 // Loopback origin guard for local callback proxies.
 // Legit OAuth redirects are top-level navigations (no `Origin` header); a cross-site
@@ -132,36 +134,61 @@ let codexProxyTimeout = null;
 const CODEX_PROXY_TIMEOUT_MS = 300000; // 5 minutes
 const CODEX_PORT = CODEX_CONFIG.fixedPort;
 
-// Pending exchange sessions keyed by state — used by server-side exchange mode
-const pendingExchanges = new Map();
+const OAUTH_EXCHANGE_TTL_MS = 300000;
+const CODEX_EXCHANGE_NAMESPACE = "oauth:codex-pending-exchange";
+const XAI_EXCHANGE_NAMESPACE = "oauth:xai-pending-exchange";
+
+function ephemeralStore() {
+  return getRuntime().assertPort("ephemeral", { authoritative: true });
+}
 
 /**
  * Register a pending exchange session for server-side mode.
  * Modal client calls this before opening popup.
  */
-export function registerCodexSession({ state, codeVerifier, redirectUri }) {
+export async function registerCodexSession({ state, codeVerifier, redirectUri }) {
   if (!state || !codeVerifier || !redirectUri) return false;
-  pendingExchanges.set(state, {
-    codeVerifier,
-    redirectUri,
-    status: "pending",
-    createdAt: Date.now(),
-  });
-  return true;
+  try {
+    await ephemeralStore().put(CODEX_EXCHANGE_NAMESPACE, state, {
+      codeVerifier,
+      redirectUri,
+      status: "pending",
+      createdAt: Date.now(),
+    }, { ttlMs: OAUTH_EXCHANGE_TTL_MS, ifAbsent: true });
+    return true;
+  } catch (error) {
+    if (error instanceof EphemeralStoreConflictError || error?.code === "EPHEMERAL_CONFLICT") return false;
+    throw error;
+  }
 }
 
 /**
  * Read session status (modal polls this).
  */
-export function getCodexSessionStatus(state) {
-  return pendingExchanges.get(state) || null;
+export async function getCodexSessionStatus(state) {
+  return state ? ephemeralStore().peek(CODEX_EXCHANGE_NAMESPACE, state) : null;
 }
 
 /**
- * Clear a session (called after modal consumes status).
+ * Atomically consume a session or completed status.
  */
-export function clearCodexSession(state) {
-  pendingExchanges.delete(state);
+export async function consumeCodexSession(state) {
+  return state ? ephemeralStore().consume(CODEX_EXCHANGE_NAMESPACE, state) : null;
+}
+
+export async function consumePendingCodexSession(state) {
+  if (!state) return null;
+  const store = ephemeralStore();
+  const session = await store.peek(CODEX_EXCHANGE_NAMESPACE, state);
+  return session?.status === "pending" ? store.consume(CODEX_EXCHANGE_NAMESPACE, state) : null;
+}
+
+export async function clearCodexSession(state) {
+  if (state) await ephemeralStore().delete(CODEX_EXCHANGE_NAMESPACE, state);
+}
+
+async function saveCodexSessionStatus(state, status) {
+  await ephemeralStore().put(CODEX_EXCHANGE_NAMESPACE, state, status, { ttlMs: OAUTH_EXCHANGE_TTL_MS });
 }
 
 function escapeHtml(str) {
@@ -210,10 +237,17 @@ export function startCodexProxy(appPort) {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const errorParam = url.searchParams.get("error");
-      const session = state ? pendingExchanges.get(state) : null;
+      const session = state ? await consumePendingCodexSession(state) : null;
 
       // Mode A: server-side exchange (session registered)
       if (session) {
+        if (session.status !== "pending") {
+          await saveCodexSessionStatus(state, session);
+          res.writeHead(410, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(renderCodexResultPage(false, "This OAuth session was already used. Restart the login flow."));
+          stopCodexProxy();
+          return;
+        }
         try {
           if (errorParam) {
             throw new Error(url.searchParams.get("error_description") || errorParam);
@@ -241,20 +275,24 @@ export function startCodexProxy(appPort) {
             testStatus: "active",
           });
 
-          session.status = "done";
-          session.connectionId = connection.id;
-          session.email = connection.email;
+          await saveCodexSessionStatus(state, { status: "done", connectionId: connection.id, email: connection.email });
 
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderCodexResultPage(true, "You can close this window."));
         } catch (err) {
-          session.status = "error";
-          session.error = err.message;
+          await saveCodexSessionStatus(state, { status: "error", error: err.message });
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderCodexResultPage(false, err.message));
         } finally {
           stopCodexProxy();
         }
+        return;
+      }
+
+      if (state) {
+        res.writeHead(410, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(renderCodexResultPage(false, "This OAuth session expired or was already used. Restart the login flow."));
+        stopCodexProxy();
         return;
       }
 
@@ -305,25 +343,43 @@ let xaiProxyServer = null;
 let xaiProxyTimeout = null;
 const XAI_PROXY_TIMEOUT_MS = 300000; // 5 minutes
 const XAI_PROXY_PORT = 56121;
-const xaiPendingExchanges = new Map();
-
-export function registerXaiSession({ state, codeVerifier, redirectUri }) {
+export async function registerXaiSession({ state, codeVerifier, redirectUri }) {
   if (!state || !codeVerifier || !redirectUri) return false;
-  xaiPendingExchanges.set(state, {
-    codeVerifier,
-    redirectUri,
-    status: "pending",
-    createdAt: Date.now(),
-  });
-  return true;
+  try {
+    await ephemeralStore().put(XAI_EXCHANGE_NAMESPACE, state, {
+      codeVerifier,
+      redirectUri,
+      status: "pending",
+      createdAt: Date.now(),
+    }, { ttlMs: OAUTH_EXCHANGE_TTL_MS, ifAbsent: true });
+    return true;
+  } catch (error) {
+    if (error instanceof EphemeralStoreConflictError || error?.code === "EPHEMERAL_CONFLICT") return false;
+    throw error;
+  }
 }
 
-export function getXaiSessionStatus(state) {
-  return xaiPendingExchanges.get(state) || null;
+export async function getXaiSessionStatus(state) {
+  return state ? ephemeralStore().peek(XAI_EXCHANGE_NAMESPACE, state) : null;
 }
 
-export function clearXaiSession(state) {
-  xaiPendingExchanges.delete(state);
+export async function consumeXaiSession(state) {
+  return state ? ephemeralStore().consume(XAI_EXCHANGE_NAMESPACE, state) : null;
+}
+
+export async function consumePendingXaiSession(state) {
+  if (!state) return null;
+  const store = ephemeralStore();
+  const session = await store.peek(XAI_EXCHANGE_NAMESPACE, state);
+  return session?.status === "pending" ? store.consume(XAI_EXCHANGE_NAMESPACE, state) : null;
+}
+
+export async function clearXaiSession(state) {
+  if (state) await ephemeralStore().delete(XAI_EXCHANGE_NAMESPACE, state);
+}
+
+async function saveXaiSessionStatus(state, status) {
+  await ephemeralStore().put(XAI_EXCHANGE_NAMESPACE, state, status, { ttlMs: OAUTH_EXCHANGE_TTL_MS });
 }
 
 function renderXaiResultPage(success, message) {
@@ -353,10 +409,17 @@ export function startXaiProxy(appPort) {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const errorParam = url.searchParams.get("error");
-      const session = state ? xaiPendingExchanges.get(state) : null;
+      const session = state ? await consumePendingXaiSession(state) : null;
 
       // Mode A: server-side exchange
       if (session) {
+        if (session.status !== "pending") {
+          await saveXaiSessionStatus(state, session);
+          res.writeHead(410, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(renderXaiResultPage(false, "This OAuth session was already used. Restart the login flow."));
+          stopXaiProxy();
+          return;
+        }
         try {
           if (errorParam) {
             throw new Error(url.searchParams.get("error_description") || errorParam);
@@ -383,20 +446,24 @@ export function startXaiProxy(appPort) {
             testStatus: "active",
           });
 
-          session.status = "done";
-          session.connectionId = connection.id;
-          session.email = connection.email;
+          await saveXaiSessionStatus(state, { status: "done", connectionId: connection.id, email: connection.email });
 
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderXaiResultPage(true, "You can close this window."));
         } catch (err) {
-          session.status = "error";
-          session.error = err.message;
+          await saveXaiSessionStatus(state, { status: "error", error: err.message });
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderXaiResultPage(false, err.message));
         } finally {
           stopXaiProxy();
         }
+        return;
+      }
+
+      if (state) {
+        res.writeHead(410, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(renderXaiResultPage(false, "This OAuth session expired or was already used. Restart the login flow."));
+        stopXaiProxy();
         return;
       }
 
