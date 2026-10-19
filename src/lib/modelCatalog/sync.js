@@ -14,6 +14,8 @@ const FETCH_TIMEOUT_MS = 60000;
 export const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 60 * 1000;   // let the server boot and serve first requests
 const RETRY_DELAY_MS = 30 * 60 * 1000;
+const SCHEDULE_ID = "model-catalog-sync";
+const HANDLER_ID = "model-catalog-sync";
 
 const MODALITY_BY_INPUT = { image: "vision", pdf: "pdf", audio: "audioInput", video: "videoInput" };
 // Ignore limit differences below this: gateways round 200000 vs 202752.
@@ -40,7 +42,7 @@ export const PROVIDER_ALIASES = {
 };
 
 let state = { running: false, lastSync: null, lastError: null, lastResult: null, etag: null, fileVersion: null };
-let timer = null;
+let scheduled = false;
 
 export function getSyncState() {
   return { ...state, file: CATALOG_FILE, url: CATALOG_URL, intervalMs: SYNC_INTERVAL_MS };
@@ -252,18 +254,31 @@ function restoreEtag() {
   }
 }
 
-// Schedule the recurring sync. Disable entirely with MODEL_CATALOG_SYNC=off.
-export function startModelCatalogSync() {
-  if (timer) return;
-  if (String(process.env.MODEL_CATALOG_SYNC || "").toLowerCase() === "off") return;
+// Local composition owns the trigger; absent ports mean no background fallback.
+export function startModelCatalogSync({ scheduler } = {}) {
+  if (scheduled || String(process.env.MODEL_CATALOG_SYNC || "").toLowerCase() === "off") return false;
+  if (typeof scheduler?.schedule !== "function") return false;
   restoreEtag();
 
   const schedule = (delay) => {
-    timer = setTimeout(async () => {
-      const result = await syncModelCatalog();
-      schedule(result ? SYNC_INTERVAL_MS : RETRY_DELAY_MS);
-    }, delay);
-    timer.unref?.();
+    scheduler.schedule({
+      id: SCHEDULE_ID,
+      handlerId: HANDLER_ID,
+      intervalMs: delay,
+      execute: async () => {
+        const result = await syncModelCatalog();
+        // Re-register only after a completed attempt; failures retry sooner.
+        schedule(result ? SYNC_INTERVAL_MS : RETRY_DELAY_MS);
+      },
+    });
   };
-  schedule(STARTUP_DELAY_MS);
+  try {
+    schedule(STARTUP_DELAY_MS);
+    scheduled = true;
+    return true;
+  } catch (error) {
+    state.lastError = error?.message || String(error);
+    console.log(`[modelCatalog] schedule failed: ${state.lastError}`);
+    return false;
+  }
 }
