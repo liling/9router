@@ -38,6 +38,37 @@ export function composeRuntime(profileId, adapters = {}, profiles = RUNTIME_PROF
   });
 }
 
+export function assertRuntimeDependencies(dependencies, required) {
+  for (const id of required) {
+    if (dependencies?.[id] === undefined || dependencies[id] === null) {
+      throw new TypeError(`Missing required runtime dependency: ${id}`);
+    }
+  }
+  return dependencies;
+}
+
+export function extendRuntime(context, adapters = {}) {
+  if (!context?.descriptor || !context?.ports) throw new TypeError('A composed RuntimeContext is required');
+  const ports = { ...context.ports };
+  for (const [id, implementation] of Object.entries(adapters)) {
+    if (!PORT_IDS.includes(id) || context.descriptor.ports[id]?.available !== true || !implementation) {
+      throw new TypeError(`Cannot extend runtime with unavailable port: ${id}`);
+    }
+    ports[id] = implementation;
+  }
+  return Object.freeze({
+    ...context,
+    ports: Object.freeze(ports),
+    assertPort: (id, { authoritative = false } = {}) => {
+      const declaration = context.descriptor.ports[id];
+      if (!PORT_IDS.includes(id) || !declaration?.available || !ports[id] || (authoritative && declaration.authoritative !== true)) {
+        throw new RuntimeCapabilityError('RUNTIME_PORT_UNAVAILABLE', { capability: id, runtime: context.descriptor.id });
+      }
+      return ports[id];
+    },
+  });
+}
+
 export function installRuntime(context) {
   if (!context?.descriptor || !context?.ports) throw new TypeError('A composed RuntimeContext is required');
   installedRuntime = context;
