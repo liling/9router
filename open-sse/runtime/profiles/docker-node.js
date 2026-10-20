@@ -5,7 +5,7 @@ export default createProfile({
   lifecycle: { model: 'long-lived', gracefulShutdown: true, coldStartExpected: false },
   scale: { instanceModel: 'single' },
   filesystem: { importable: true, writable: 'volume', durableAcrossRestarts: true },
-  background: { model: 'process-timers', survivesResponse: true, durable: true },
+  background: { model: 'process-timers', survivesResponse: true, durable: false },
   capabilityTags: ['http-fetch', 'http-proxy', 'mitm-dns', 'h2-duplex', 'node-stream', 'fs-persistent', 'process-spawn', 'local-socket', 'stable-timers'],
   availablePorts: ['httpTransport'],
   authoritativePorts: ['httpTransport'],
