@@ -169,7 +169,11 @@ describe("catalog schema", () => {
     const registrations = [];
     const scheduler = { schedule: vi.fn((registration) => registrations.push(registration)) };
     expect(startModelCatalogSync({ scheduler })).toBe(true);
-    expect(registrations[0]).toMatchObject({ id: "model-catalog-sync", intervalMs: 60_000 });
+    expect(registrations[0]).toMatchObject({
+      id: "model-catalog-sync",
+      trigger: { kind: "interval", intervalMs: 60_000 },
+      handlerId: "model-catalog-sync",
+    });
 
     const sent = [];
     const realFetch = globalThis.fetch;
@@ -186,13 +190,13 @@ describe("catalog schema", () => {
     const written = JSON.parse(fs.readFileSync(catalogFile, "utf8"));
     expect(written.v).toBe(2);
     expect(written.models["glm:glm-4.6v"]).toEqual({ vision: true });
-    expect(registrations.at(-1).intervalMs).toBe(24 * 60 * 60 * 1000);
+    expect(registrations.at(-1).trigger.intervalMs).toBe(24 * 60 * 60 * 1000);
 
     const successfulFetch = globalThis.fetch;
     globalThis.fetch = async () => ({ ok: false, status: 503, headers: new Map(), json: async () => ({}) });
     try {
       await registrations.at(-1).execute();
-      expect(registrations.at(-1).intervalMs).toBe(30 * 60 * 1000);
+      expect(registrations.at(-1).trigger.intervalMs).toBe(30 * 60 * 1000);
     } finally {
       globalThis.fetch = successfulFetch;
     }

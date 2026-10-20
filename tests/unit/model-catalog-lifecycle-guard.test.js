@@ -9,7 +9,7 @@ describe('model catalog lifecycle boundary', () => {
   it('delegates recurring triggers instead of creating process timers', () => {
     const source = readFileSync(resolve(repoRoot, 'src/lib/modelCatalog/sync.js'), 'utf8');
     expect(source).not.toMatch(/\bset(?:Timeout|Interval)\s*\(/);
-    expect(source).toContain('scheduler.schedule(');
+    expect(source).toMatch(/scheduler\.schedule\(\s*\{\s*id:\s*SCHEDULE_ID,\s*trigger:\s*\{\s*kind:\s*["']interval["'],\s*intervalMs:\s*delay\s*\},\s*handlerId:\s*HANDLER_ID,\s*execute:/s);
     expect(source).not.toMatch(/\b(?:ExecutionContext|waitUntil)\b/);
   });
 

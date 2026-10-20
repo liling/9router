@@ -1,4 +1,4 @@
-import { assertScheduler } from '../ports/scheduler.js';
+import { assertScheduler, validateScheduleSpec } from '../ports/scheduler.js';
 
 export function createLocalIntervalScheduler({ backgroundTasks, onError = () => {} }) {
   const intervals = new Map();
@@ -6,18 +6,14 @@ export function createLocalIntervalScheduler({ backgroundTasks, onError = () => 
   let tick = 0;
 
   const port = {
-    schedule({ id, intervalMs, handlerId, execute }) {
+    schedule(scheduleSpec) {
+      validateScheduleSpec(scheduleSpec);
       if (closed) throw new Error('Scheduler is closed');
-      if (!id || !Number.isFinite(intervalMs) || intervalMs <= 0) {
-        throw new TypeError('A schedule requires an id and positive intervalMs');
-      }
-      if (typeof execute !== 'function' && typeof handlerId !== 'string') {
-        throw new TypeError('A schedule requires execute or handlerId');
-      }
+      const { id, trigger: { intervalMs }, handlerId, execute } = scheduleSpec;
       clearInterval(intervals.get(id));
       const interval = setInterval(() => {
         try {
-          backgroundTasks.enqueue({ id: `${id}:${++tick}`, execute: execute ?? (() => { throw new Error(`No handler registered: ${handlerId}`); }) });
+          backgroundTasks.enqueue({ id: `${id}:${++tick}`, execute });
         } catch (error) {
           onError(error, { id, handlerId });
         }

@@ -263,8 +263,8 @@ export function startModelCatalogSync({ scheduler } = {}) {
   const schedule = (delay) => {
     scheduler.schedule({
       id: SCHEDULE_ID,
+      trigger: { kind: "interval", intervalMs: delay },
       handlerId: HANDLER_ID,
-      intervalMs: delay,
       execute: async () => {
         const result = await syncModelCatalog();
         // Re-register only after a completed attempt; failures retry sooner.
