@@ -137,6 +137,20 @@ test("deployable Worker does not expose API-key operations", async (context) => 
     assert.equal(result.response.status, 404, `${operation} unexpectedly reached the deployable Worker`);
   }
 
+  const isolatedProbes = await Promise.all(["request-a", "request-b"].map(async (key) => {
+    const response = await fetch(`${workerOrigin}/probe/d1`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key, value: `value-${key}` }),
+    });
+    return { status: response.status, ...(await response.json()) };
+  }));
+  assert.deepEqual(isolatedProbes.map(({ row }) => row), [
+    { key: "request-a", value: "value-request-a" },
+    { key: "request-b", value: "value-request-b" },
+  ]);
+  assert.ok(isolatedProbes.every(({ status, executor }) => status === 200 && executor === "openai"));
+
   const jsonResponse = await fetch(`${workerOrigin}/v1/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json" },

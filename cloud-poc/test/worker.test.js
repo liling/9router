@@ -55,7 +55,10 @@ async function invoke(payload, signal, headers = {}) {
     body: JSON.stringify(payload),
     signal,
   });
-  return worker.fetch(request, { UPSTREAM_ORIGIN: upstreamOrigin });
+  return worker.fetch(request, {
+    UPSTREAM_ORIGIN: upstreamOrigin,
+    DB: { prepare: () => ({ bind() { return this; }, async run() { return { meta: { changes: 1 } }; }, async first() { return null; } }) },
+  }, { waitUntil(promise) { promise.catch(() => {}); } });
 }
 
 test("translates a Claude JSON request through the production executor and back", async () => {
