@@ -54,7 +54,11 @@ export async function initializeApp() {
     // Register cleanup + exit-respawn callback immediately so signals and
     // unexpected cloudflared exits are handled even during the deferred window.
     if (!g.signalHandlersRegistered) {
-      const cleanup = () => {
+      const cleanup = async () => {
+        try {
+          const { stopLocalComposition } = await import("@/lib/runtime/localComposition.js");
+          await stopLocalComposition();
+        } catch { /* best effort */ }
         try { removeAllDNSEntriesSync(); } catch { /* best effort */ }
         try { killAllBridges(); } catch { /* best effort */ }
         killCloudflared();
@@ -113,11 +117,6 @@ async function runHeavyStartup() {
       .catch((e) => console.log("[AutoPing] scheduler start failed:", e.message));
   }
 
-  // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
-  // and also started from custom-server.js when that entry is used.
-  import("@/sse/services/backgroundTokenRefresh.js")
-    .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
-    .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
 }
 
 // Cheap local check: keeps the scheduler module (and its provider graph) unloaded
