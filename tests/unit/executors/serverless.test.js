@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DefaultExecutor } from "../../../open-sse/executors/default.js";
 import { getExecutor, hasSpecializedExecutor } from "../../../open-sse/executors/serverless.js";
 import { assertExecutorCapabilities, getExecutorCapability, RUNTIME_PROFILES, RuntimeCapabilityError } from "../../../open-sse/executors/capabilities.js";
@@ -10,23 +10,17 @@ describe("serverless executor registry", () => {
     expect(() => getExecutor("openai")).toThrow(expect.objectContaining({ code: "RUNTIME_CONTEXT_NOT_INSTALLED" }));
 
     const httpTransport = { fetch: vi.fn() };
-    installRuntime(composeRuntime("local-node", {
-      httpTransport, ephemeral: {}, persistence: {}, backgroundTasks: {}, scheduler: {},
-    }));
+    installRuntime(composeRuntime("local-node", { httpTransport }));
     expect(() => getExecutor("devin-cli")).toThrow(expect.objectContaining({ runtime: "local-node" }));
 
-    installRuntime(composeRuntime("cloudflare-worker", {
-      httpTransport, persistence: {}, ephemeral: {}, backgroundTasks: {},
-    }));
+    installRuntime(composeRuntime("cloudflare-worker", { httpTransport }));
     expect(() => getExecutor("devin-cli")).toThrow(expect.objectContaining({ runtime: "cloudflare-worker" }));
     resetRuntimeForTests();
   });
 
   it("uses DefaultExecutor for generic HTTP providers", () => {
     const httpTransport = { fetch: vi.fn() };
-    installRuntime(composeRuntime("cloudflare-worker", {
-      httpTransport, persistence: {}, ephemeral: {}, backgroundTasks: {},
-    }));
+    installRuntime(composeRuntime("cloudflare-worker", { httpTransport }));
     expect(getExecutor("openai")).toBeInstanceOf(DefaultExecutor);
     expect(getExecutor("openai-compatible-custom")).toBeInstanceOf(DefaultExecutor);
     expect(hasSpecializedExecutor("openai")).toBe(false);
