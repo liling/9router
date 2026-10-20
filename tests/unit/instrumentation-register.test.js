@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRuntime, resetRuntimeForTests } from '../../open-sse/runtime/context.js';
+import { stopLocalComposition } from '../../src/lib/runtime/localComposition.js';
 
 const lifecycleMocks = vi.hoisted(() => ({
   start: vi.fn(),
@@ -25,7 +26,8 @@ describe('instrumentation register runtime composition', () => {
     for (const key of environmentKeys) delete process.env[key];
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await stopLocalComposition();
     resetRuntimeForTests();
     for (const key of environmentKeys) {
       if (originalEnvironment[key] === undefined) delete process.env[key];
@@ -40,12 +42,9 @@ describe('instrumentation register runtime composition', () => {
     await register();
 
     expect(getRuntime().descriptor.id).toBe('local-node');
-    expect(lifecycleMocks.start).toHaveBeenCalledWith({
-      scheduler: expect.objectContaining({ schedule: expect.any(Function) }),
-    });
-    expect(lifecycleMocks.createScheduler).toHaveBeenCalledWith({
-      backgroundTasks: expect.objectContaining({ enqueue: expect.any(Function) }),
-    });
+    expect(getRuntime().assertPort('persistence', { authoritative: true }).list).toBeTypeOf('function');
+    expect(getRuntime().assertPort('backgroundTasks').enqueue).toBeTypeOf('function');
+    expect(getRuntime().assertPort('scheduler').schedule).toBeTypeOf('function');
     const ephemeral = getRuntime().assertPort('ephemeral', { authoritative: true });
     await ephemeral.put('register-test', 'key', { value: 42 }, { ttlMs: 10_000, ifAbsent: true });
     await expect(ephemeral.put('register-test', 'key', { value: 43 }, { ttlMs: 10_000, ifAbsent: true })).rejects.toMatchObject({ code: 'EPHEMERAL_CONFLICT' });
@@ -102,8 +101,8 @@ describe('instrumentation register runtime composition', () => {
     const { register } = await import('../../src/instrumentation.js');
     await register();
     expect(getRuntime().descriptor.id).toBe('local-node');
-    expect(lifecycleMocks.start).toHaveBeenCalledTimes(1);
-    expect(lifecycleMocks.createTasks).toHaveBeenCalledTimes(1);
+    expect(getRuntime().assertPort('persistence', { authoritative: true }).list).toBeTypeOf('function');
+    expect(getRuntime().assertPort('scheduler').schedule).toBeTypeOf('function');
   });
 
   it.each([
@@ -129,7 +128,7 @@ describe('instrumentation register runtime composition', () => {
     const { register } = await import('../../src/instrumentation.js');
     await register();
     expect(getRuntime().descriptor.id).toBe('local-node');
-    expect(lifecycleMocks.start).toHaveBeenCalledTimes(1);
+    expect(getRuntime().assertPort('persistence', { authoritative: true }).list).toBeTypeOf('function');
   });
 
   it('does not install Local runtime for edge', async () => {
