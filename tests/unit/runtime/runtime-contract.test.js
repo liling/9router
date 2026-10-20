@@ -48,14 +48,16 @@ describe('runtime capability contracts', () => {
       'cloudflare-worker': ['lease', 'secret', 'scheduler', 'blob'],
       'cloud-run': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'vercel-node': ['persistence', 'ephemeral', 'secret', 'backgroundTasks', 'scheduler'],
-      'local-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
+      'local-node': ['lease', 'secret', 'blob', 'process'],
       'docker-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'local-bun': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
     };
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
       const expectedAvailablePorts = id === 'cloudflare-worker'
         ? ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks']
-        : ['httpTransport'];
+        : id === 'local-node'
+          ? ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks', 'scheduler']
+          : ['httpTransport'];
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(expectedAvailablePorts);
       expect(profile.ports.httpTransport.authoritative).toBe(true);
       expect(profile.ports.persistence.available).toBe(expectedAvailablePorts.includes('persistence'));
@@ -64,12 +66,16 @@ describe('runtime capability contracts', () => {
     }
     expect(Object.keys(RUNTIME_PROFILES['local-node'].ports)).toHaveLength(9);
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
-      const expected = id === 'cloudflare-worker' ? ['httpTransport', 'backgroundTasks'] : ['httpTransport'];
+      const expected = id === 'cloudflare-worker'
+        ? ['httpTransport', 'backgroundTasks']
+        : id === 'local-node'
+          ? ['httpTransport', 'backgroundTasks', 'scheduler']
+          : ['httpTransport'];
       expect(profile.ports.backgroundTasks.available).toBe(expected.includes('backgroundTasks'));
       expect(profile.ports.scheduler.available).toBe(expected.includes('scheduler'));
     }
     expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: true });
-    expect(RUNTIME_PROFILES['local-node'].ports.ephemeral).toMatchObject({ available: false, authoritative: false, shared: false });
+      expect(RUNTIME_PROFILES['local-node'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: false });
     expect(RUNTIME_PROFILES['cloud-run'].ports.ephemeral).toMatchObject({ available: false, planned: { shared: true } });
     expect(RUNTIME_PROFILES['cloudflare-worker'].ports.scheduler).toMatchObject({ available: false, planned: expect.any(Object) });
     expect(RUNTIME_PROFILES['cloud-run'].ports.backgroundTasks.planned.note).toMatch(/Best-effort/);

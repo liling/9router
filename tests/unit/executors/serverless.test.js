@@ -11,7 +11,13 @@ describe("serverless executor registry", () => {
     expect(() => getExecutor("openai")).toThrow(expect.objectContaining({ code: "RUNTIME_CONTEXT_NOT_INSTALLED" }));
 
     const httpTransport = { fetch: vi.fn() };
-    installRuntime(composeRuntime("local-node", { httpTransport }));
+    installRuntime(composeRuntime("local-node", {
+      httpTransport,
+      persistence: {},
+      ephemeral: {},
+      backgroundTasks: {},
+      scheduler: {},
+    }));
     expect(() => getExecutor("devin-cli")).toThrow(expect.objectContaining({ runtime: "local-node" }));
 
     installRuntime(composeCloudflareBaseRuntime(httpTransport.fetch));
