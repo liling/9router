@@ -3,6 +3,7 @@ import { initState, translateRequest, translateResponse } from "../../open-sse/t
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
 import { composeRuntime, installRuntime } from "../../open-sse/runtime/context.js";
+import { composeCloudflareBackgroundRuntime } from "../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js";
 import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
 import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
@@ -94,12 +95,37 @@ function translateSSE(body, clientFormat, onCancel) {
   });
 }
 
+const backgroundProbeState = new Map();
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, executionContext) {
     const incomingUrl = new URL(request.url);
 
     if (incomingUrl.pathname === "/health") {
       return Response.json({ ok: true, runtime: "worker" });
+    }
+
+    if (incomingUrl.pathname === "/probe/background" && request.method === "POST") {
+      const id = crypto.randomUUID();
+      backgroundProbeState.set(id, "pending");
+      const requestRuntime = composeCloudflareBackgroundRuntime({
+        executionContext,
+        httpTransport: runtime.ports.httpTransport,
+      });
+      requestRuntime.assertPort("backgroundTasks").enqueue({
+        id,
+        execute: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          backgroundProbeState.set(id, "finished");
+        },
+      });
+      return Response.json({ id, state: backgroundProbeState.get(id) });
+    }
+
+    if (incomingUrl.pathname.startsWith("/probe/background/") && request.method === "GET") {
+      const id = incomingUrl.pathname.slice("/probe/background/".length);
+      const state = backgroundProbeState.get(id);
+      return state ? Response.json({ id, state }) : Response.json({ error: "not_found" }, { status: 404 });
     }
 
     if (incomingUrl.pathname === "/probe/local-only") {

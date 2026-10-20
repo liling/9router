@@ -15,7 +15,9 @@ export function validateRuntimeDescriptor(descriptor) {
   if (!descriptor.scale || !['single', 'multi'].includes(descriptor.scale.instanceModel) || typeof descriptor.scale.stickySessions !== 'boolean') issues.push('scale is invalid');
   if (!descriptor.filesystem || typeof descriptor.filesystem.importable !== 'boolean' || !['persistent', 'volume', 'ephemeral', 'none'].includes(descriptor.filesystem.writable) || typeof descriptor.filesystem.durableAcrossRestarts !== 'boolean' || (descriptor.filesystem.scope !== undefined && !['request', 'instance'].includes(descriptor.filesystem.scope))) issues.push('filesystem is invalid');
   if (!descriptor.background || !['process-timers', 'bounded-waituntil', 'platform-scheduled', 'none'].includes(descriptor.background.model) || typeof descriptor.background.survivesResponse !== 'boolean' || typeof descriptor.background.durable !== 'boolean') issues.push('background is invalid');
+  if (descriptor.background?.model === 'process-timers' && descriptor.background.durable) issues.push('process-timers must not claim durable completion');
   if (descriptor.background?.model === 'bounded-waituntil' && descriptor.background.survivesResponse !== true) issues.push('bounded-waituntil must survive the response');
+  if (descriptor.background?.model === 'bounded-waituntil' && descriptor.background.durable) issues.push('bounded-waituntil must not claim durable completion');
   if (!Array.isArray(descriptor.capabilityTags) || descriptor.capabilityTags.some((tag) => !CAPABILITIES.includes(normalizeCapability(tag)))) issues.push('capabilityTags contains an unknown capability');
   if (!descriptor.ports || PORT_IDS.some((id) => !descriptor.ports[id] || typeof descriptor.ports[id].available !== 'boolean') || Object.keys(descriptor.ports ?? {}).some((id) => !PORT_IDS.includes(id))) issues.push('ports must declare exactly the nine port availabilities');
   for (const key of ['httpTransport', 'persistence', 'ephemeral']) {

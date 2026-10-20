@@ -58,7 +58,13 @@ describe('runtime capability contracts', () => {
     expect(RUNTIME_PROFILES['cloudflare-worker'].capabilityTags).not.toContain('fs-ephemeral');
     expect(RUNTIME_PROFILES['cloud-run'].capabilityTags).not.toContain('stable-timers');
     expect(RUNTIME_PROFILES['cloud-run'].background).toEqual({ model: 'process-timers', survivesResponse: false, durable: false });
-    for (const id of ['local-node', 'docker-node', 'local-bun']) expect(RUNTIME_PROFILES[id].background.durable).toBe(true);
+    for (const id of ['local-node', 'docker-node', 'local-bun']) {
+      expect(RUNTIME_PROFILES[id].background).toEqual({
+        model: 'process-timers',
+        survivesResponse: true,
+        durable: false,
+      });
+    }
   });
 
   it('composes Cloudflare with only the implemented HTTP port and rejects planned ports at use', () => {
@@ -96,6 +102,8 @@ describe('runtime capability contracts', () => {
   it('requires durable background semantics and bounded work to survive the response', () => {
     const cloudflare = RUNTIME_PROFILES['cloudflare-worker'];
     expect(validateRuntimeDescriptor({ ...cloudflare, background: { ...cloudflare.background, survivesResponse: false } })).toContain('bounded-waituntil must survive the response');
+    expect(validateRuntimeDescriptor({ ...cloudflare, background: { model: 'process-timers', survivesResponse: true, durable: true } })).toContain('process-timers must not claim durable completion');
+    expect(validateRuntimeDescriptor({ ...cloudflare, background: { ...cloudflare.background, durable: true } })).toContain('bounded-waituntil must not claim durable completion');
     expect(validateRuntimeDescriptor({ ...cloudflare, background: { model: 'none', survivesResponse: false } })).toContain('background is invalid');
     expect(validateRuntimeDescriptor({ ...cloudflare, ports: { ...cloudflare.ports, legacyBackground: { available: false } } })).toContain('ports must declare exactly the nine port availabilities');
   });
@@ -116,7 +124,7 @@ describe('runtime capability contracts', () => {
       id: 'deno-future', label: 'Deno Future', kind: 'process', runtimeFamily: 'deno',
       lifecycle: { model: 'long-lived' }, scale: { instanceModel: 'single' },
       filesystem: { importable: true, writable: 'persistent', durableAcrossRestarts: true },
-      background: { model: 'process-timers', survivesResponse: true, durable: true },
+      background: { model: 'process-timers', survivesResponse: true, durable: false },
       capabilityTags: ['http-fetch', 'fs-persistent', 'stable-timers'],
       availablePorts: ['httpTransport'],
       authoritativePorts: ['httpTransport'],

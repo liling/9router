@@ -108,6 +108,21 @@ test("deployable Worker does not expose API-key operations", async (context) => 
   }
   assert.equal(ready, true, `Wrangler did not become ready:\n${logs}`);
 
+  const backgroundResponse = await fetch(`${workerOrigin}/probe/background`, { method: "POST" });
+  const background = await backgroundResponse.json();
+  assert.equal(backgroundResponse.status, 200);
+  assert.equal(background.state, "pending", "the response should return before the waitUntil task finishes");
+  const pendingResponse = await fetch(`${workerOrigin}/probe/background/${background.id}`);
+  assert.deepEqual(await pendingResponse.json(), { id: background.id, state: "pending" });
+  const backgroundDeadline = Date.now() + 5000;
+  let backgroundState = "pending";
+  while (Date.now() < backgroundDeadline && backgroundState === "pending") {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+    const stateResponse = await fetch(`${workerOrigin}/probe/background/${background.id}`);
+    backgroundState = (await stateResponse.json()).state;
+  }
+  assert.equal(backgroundState, "finished", "workerd did not finish the waitUntil task after returning the response");
+
   async function d1ApiKey(operation, input = {}) {
     const response = await fetch(`${workerOrigin}/probe/d1/api-keys`, {
       method: "POST",
