@@ -20,6 +20,10 @@ describe('Cloudflare BackgroundTasks scenarios', () => {
     expect(runtime.assertPort('backgroundTasks')).toBe(runtime.backgroundTasks);
     expect(runtime.descriptor.ports.backgroundTasks).toMatchObject({ available: true });
     expect(runtime.descriptor.ports.backgroundTasks.planned).toBeUndefined();
+    expect(runtime.descriptor.ports.persistence.available).toBe(false);
+    expect(runtime.descriptor.ports.ephemeral.available).toBe(false);
+    expect(() => runtime.assertPort('persistence')).toThrow();
+    expect(() => runtime.assertPort('ephemeral')).toThrow();
     expect(runtime.descriptor.ports.scheduler).toMatchObject({ available: false, planned: { adapter: 'Cron Triggers' } });
     expect(() => runtime.assertPort('scheduler')).toThrow();
   });

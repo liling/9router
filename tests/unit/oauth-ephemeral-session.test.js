@@ -15,7 +15,13 @@ import {
 afterEach(() => resetRuntimeForTests());
 
 function installLocalStore(now) {
-  installRuntime(composeRuntime('local-node', { httpTransport: {}, ephemeral: createLocalEphemeralStore({ now }) }));
+  installRuntime(composeRuntime('local-node', {
+    httpTransport: {},
+    persistence: {},
+    ephemeral: createLocalEphemeralStore({ now }),
+    backgroundTasks: {},
+    scheduler: {},
+  }));
 }
 
 describe('Codex/xAI ephemeral OAuth sessions', () => {
