@@ -4,14 +4,13 @@ import { RUNTIME_PROFILES } from '../profiles/index.js';
 import { assertBackgroundTasks } from '../ports/backgroundTasks.js';
 
 const cloudflareProfile = RUNTIME_PROFILES['cloudflare-worker'];
-const backgroundTasksPort = { ...cloudflareProfile.ports.backgroundTasks };
-delete backgroundTasksPort.planned;
 const cloudflareBackgroundProfile = defineRuntimeDescriptor({
   ...cloudflareProfile,
-  ports: {
-    ...cloudflareProfile.ports,
-    backgroundTasks: { ...backgroundTasksPort, available: true },
-  },
+  ports: Object.fromEntries(Object.entries(cloudflareProfile.ports).map(([id, declaration]) => [id, {
+    ...declaration,
+    available: id === 'httpTransport' || id === 'backgroundTasks',
+    ...(['httpTransport', 'backgroundTasks'].includes(id) ? { planned: undefined } : {}),
+  }])),
 });
 
 export function createCloudflareBackgroundTasks({ executionContext, onError = () => {}, onDrop = () => {} }) {

@@ -1,11 +1,31 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { CAPABILITIES, assertCapabilities, hasCapabilities, RuntimeCapabilityError } from '../../../open-sse/runtime/capabilities.js';
-import { composeRuntime, getRuntime, installRuntime, resetRuntimeForTests } from '../../../open-sse/runtime/context.js';
+import { assertRuntimeDependencies, composeRuntime, extendRuntime, getRuntime, installRuntime, resetRuntimeForTests } from '../../../open-sse/runtime/context.js';
 import { defineRuntimeDescriptor, validateRuntimeDescriptor } from '../../../open-sse/runtime/descriptor.js';
 import { RUNTIME_PROFILES } from '../../../open-sse/runtime/profiles/index.js';
 import { createProfile } from '../../../open-sse/runtime/profiles/profile.js';
 import { assertBackgroundTasks, BACKGROUND_TASK_METHODS } from '../../../open-sse/runtime/ports/backgroundTasks.js';
 import { assertScheduler, SCHEDULER_METHODS } from '../../../open-sse/runtime/ports/scheduler.js';
+import { composeCloudflareBaseRuntime, composeCloudflareRequestRuntime } from '../../../open-sse/runtime/adapters/cloudflareProduction.js';
+import { createCloudflareBackgroundTasks } from '../../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js';
+import { createD1ApiKeyRepository } from '../../../open-sse/runtime/adapters/d1/apiKeyRepository.js';
+import { createD1EphemeralStore } from '../../../open-sse/runtime/adapters/d1/ephemeralStore.js';
+
+function testCompositionProfile(id, availablePorts) {
+  const profile = RUNTIME_PROFILES[id];
+  const available = new Set(availablePorts);
+  return {
+    ...profile,
+    id: `${id}-composition-test`,
+    ports: Object.fromEntries(Object.entries(profile.ports).map(([port, declaration]) => [port, {
+      ...declaration,
+      available: available.has(port),
+      ...(Object.hasOwn(declaration, 'authoritative') ? {
+        authoritative: available.has(port) && (declaration.authoritative || ['persistence', 'ephemeral'].includes(port)),
+      } : {}),
+    }])),
+  };
+}
 
 describe('runtime capability contracts', () => {
   beforeEach(() => resetRuntimeForTests());
@@ -25,32 +45,39 @@ describe('runtime capability contracts', () => {
 
   it('declares only implemented ports and records planned adapters separately', () => {
     const expectedPlannedPorts = {
-      'cloudflare-worker': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob'],
+      'cloudflare-worker': ['lease', 'secret', 'scheduler', 'blob'],
       'cloud-run': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'vercel-node': ['persistence', 'ephemeral', 'secret', 'backgroundTasks', 'scheduler'],
-      'local-node': ['persistence', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
+      'local-node': ['lease', 'secret', 'blob', 'process'],
       'docker-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'local-bun': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
     };
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
-      const expectedAvailablePorts = id === 'local-node' ? ['httpTransport', 'ephemeral'] : ['httpTransport'];
+      const expectedAvailablePorts = id === 'cloudflare-worker'
+        ? ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks']
+        : id === 'local-node'
+          ? ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks', 'scheduler']
+          : ['httpTransport'];
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(expectedAvailablePorts);
       expect(profile.ports.httpTransport.authoritative).toBe(true);
-      expect(profile.ports.persistence).toMatchObject({ available: false, authoritative: false, planned: expect.any(Object) });
+      expect(profile.ports.persistence.available).toBe(expectedAvailablePorts.includes('persistence'));
+      if (!profile.ports.persistence.available) expect(profile.ports.persistence).toMatchObject({ authoritative: false, planned: expect.any(Object) });
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].planned)).toEqual(expectedPlannedPorts[id]);
     }
     expect(Object.keys(RUNTIME_PROFILES['local-node'].ports)).toHaveLength(9);
-    for (const profile of Object.values(RUNTIME_PROFILES)) {
-      expect(profile.ports.backgroundTasks.available).toBe(false);
-      expect(profile.ports.scheduler.available).toBe(false);
+    for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
+      const expected = id === 'cloudflare-worker'
+        ? ['httpTransport', 'backgroundTasks']
+        : id === 'local-node'
+          ? ['httpTransport', 'backgroundTasks', 'scheduler']
+          : ['httpTransport'];
+      expect(profile.ports.backgroundTasks.available).toBe(expected.includes('backgroundTasks'));
+      expect(profile.ports.scheduler.available).toBe(expected.includes('scheduler'));
     }
-    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral.planned.shared).toBe(true);
-    expect(RUNTIME_PROFILES['local-node'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: false });
+    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: true });
+      expect(RUNTIME_PROFILES['local-node'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: false });
     expect(RUNTIME_PROFILES['cloud-run'].ports.ephemeral).toMatchObject({ available: false, planned: { shared: true } });
-    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({
-      available: false,
-      planned: { adapter: 'D1', shared: true, note: expect.stringContaining('until composed') },
-    });
+    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.scheduler).toMatchObject({ available: false, planned: expect.any(Object) });
     expect(RUNTIME_PROFILES['cloud-run'].ports.backgroundTasks.planned.note).toMatch(/Best-effort/);
     expect(RUNTIME_PROFILES['cloudflare-worker'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
     expect(RUNTIME_PROFILES['vercel-node'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
@@ -67,25 +94,27 @@ describe('runtime capability contracts', () => {
     }
   });
 
-  it('composes Cloudflare with only the implemented HTTP port and rejects planned ports at use', () => {
+  it('composes the declared runtime ports and rejects missing ports at composition', () => {
     expect(() => getRuntime()).toThrow(expect.objectContaining({ code: 'RUNTIME_CONTEXT_NOT_INSTALLED' }));
     const httpTransport = { fetch: () => new Response() };
-    const context = composeRuntime('cloudflare-worker', { httpTransport });
+    const profile = testCompositionProfile('cloudflare-worker', ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks']);
+    const context = composeRuntime(profile, {
+      httpTransport, persistence: {}, ephemeral: {}, backgroundTasks: {},
+    });
     expect(installRuntime(context)).toBe(context);
     expect(getRuntime().assertPort('httpTransport')).toBe(httpTransport);
-    expect(() => context.assertPort('persistence')).toThrow(expect.objectContaining({
-      code: 'RUNTIME_PORT_UNAVAILABLE', capability: 'persistence', runtime: 'cloudflare-worker',
-    }));
-    expect(() => context.assertPort('persistence', { authoritative: true })).toThrow(expect.objectContaining({
-      code: 'RUNTIME_PORT_UNAVAILABLE', capability: 'persistence', runtime: 'cloudflare-worker',
+    expect(context.assertPort('persistence', { authoritative: true })).toBe(context.ports.persistence);
+    expect(() => composeRuntime(profile, { httpTransport })).toThrow(expect.objectContaining({
+      code: 'RUNTIME_PORT_UNAVAILABLE', capability: 'persistence', runtime: 'cloudflare-worker-composition-test',
     }));
     expect(() => context.assertPort('unknown')).toThrow(expect.objectContaining({ code: 'RUNTIME_PORT_UNAVAILABLE' }));
   });
 
   it('rejects supplied adapters for unavailable ports and missing adapters for available ports', () => {
-    expect(() => composeRuntime('cloudflare-worker', { httpTransport: {}, persistence: {} })).toThrow(TypeError);
-    const localNode = RUNTIME_PROFILES['local-node'];
-    expect(() => composeRuntime('local-node', { httpTransport: {}, ephemeral: {} })).not.toThrow();
+    const cloudflare = testCompositionProfile('cloudflare-worker', ['httpTransport']);
+    expect(() => composeRuntime(cloudflare, { httpTransport: {}, persistence: {}, ephemeral: {}, backgroundTasks: {}, scheduler: {} })).toThrow(TypeError);
+    const localNode = testCompositionProfile('local-node', ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks', 'scheduler']);
+    expect(() => composeRuntime(localNode, { httpTransport: {}, persistence: {}, ephemeral: {}, backgroundTasks: {}, scheduler: {} })).not.toThrow();
     const persistenceRequiredDescriptor = {
       ...localNode,
       id: 'local-node-with-required-persistence',
@@ -94,9 +123,62 @@ describe('runtime capability contracts', () => {
         persistence: { ...localNode.ports.persistence, available: true },
       },
     };
-    expect(() => composeRuntime(persistenceRequiredDescriptor, { httpTransport: {} })).toThrow(expect.objectContaining({
+    expect(() => composeRuntime(persistenceRequiredDescriptor, { httpTransport: {}, ephemeral: {}, backgroundTasks: {}, scheduler: {} })).toThrow(expect.objectContaining({
       code: 'RUNTIME_PORT_UNAVAILABLE', capability: 'persistence', runtime: 'local-node-with-required-persistence',
     }));
+  });
+
+  it('fails closed on required dependencies and extends composed contexts per request', () => {
+    expect(() => assertRuntimeDependencies({}, ['D1'])).toThrow('Missing required runtime dependency: D1');
+    const profile = testCompositionProfile('cloudflare-worker', ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks']);
+    const context = composeRuntime(profile, {
+      httpTransport: {}, persistence: {}, ephemeral: {}, backgroundTasks: {},
+    });
+    const requestTasks = {};
+    const requestContext = extendRuntime(context, { backgroundTasks: requestTasks });
+    expect(requestContext.assertPort('backgroundTasks')).toBe(requestTasks);
+    expect(context.assertPort('backgroundTasks')).not.toBe(requestTasks);
+    expect(() => extendRuntime(context, { scheduler: {} })).toThrow(/unavailable port/);
+  });
+
+  it('composes isolated request runtimes without mutating the installed base', async () => {
+    const base = composeCloudflareBaseRuntime(async () => new Response('ok'));
+    installRuntime(base);
+    const makeDb = () => {
+      const records = new Map();
+      return { prepare() { return { bind(...values) { this.values = values; return this; }, async run() {
+        const [namespace, key, value] = this.values;
+        records.set(`${namespace}:${key}`, value);
+        return { meta: { changes: 1 } };
+      }, async first() {
+        const [namespace, key] = this.values;
+        const value = records.get(`${namespace}:${key}`);
+        return value ? { value_json: value } : null;
+      } }; } };
+    };
+    const waitsA = [], waitsB = [];
+    const factories = {
+      createApiKeyRepository: createD1ApiKeyRepository,
+      createEphemeralStore: createD1EphemeralStore,
+      createBackgroundTasks: createCloudflareBackgroundTasks,
+    };
+    const a = composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: { waitUntil: (p) => waitsA.push(p) } });
+    const b = composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: { waitUntil: (p) => waitsB.push(p) } });
+    await Promise.all([
+      a.assertPort('ephemeral').put('ns', 'key', 'a', { ttlMs: 10000 }),
+      b.assertPort('ephemeral').put('ns', 'key', 'b', { ttlMs: 10000 }),
+    ]);
+    expect(await a.assertPort('ephemeral').peek('ns', 'key')).toBe('a');
+    expect(await b.assertPort('ephemeral').peek('ns', 'key')).toBe('b');
+    a.assertPort('backgroundTasks').enqueue({ id: 'a', execute: async () => {} });
+    b.assertPort('backgroundTasks').enqueue({ id: 'b', execute: async () => {} });
+    await Promise.all([...waitsA, ...waitsB]);
+    expect(waitsA).toHaveLength(1);
+    expect(waitsB).toHaveLength(1);
+    expect(getRuntime()).toBe(base);
+    for (const port of ['persistence', 'ephemeral', 'backgroundTasks']) expect(() => base.assertPort(port)).toThrow(RuntimeCapabilityError);
+    expect(() => composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: {}, executionContext: { waitUntil() {} } })).toThrow(/D1/);
+    expect(() => composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: {} })).toThrow(/background registration/);
   });
 
   it('requires durable background semantics and bounded work to survive the response', () => {

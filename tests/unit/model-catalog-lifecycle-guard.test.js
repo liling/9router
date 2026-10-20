@@ -13,11 +13,12 @@ describe('model catalog lifecycle boundary', () => {
     expect(source).not.toMatch(/\b(?:ExecutionContext|waitUntil)\b/);
   });
 
-  it('only injects Local lifecycle adapters from the positive Local profile branch', () => {
+  it('delegates Local lifecycle composition only from the positive Local profile branch', () => {
     const source = readFileSync(resolve(repoRoot, 'src/instrumentation.js'), 'utf8');
     expect(source.match(/resolveRuntimeProfile\(\)/g)).toHaveLength(1);
-    expect(source).toMatch(/const runtimeProfile = resolveRuntimeProfile\(\);[\s\S]*?if\s*\(runtimeProfile\.isLocalPersistent\)\s*\{[\s\S]*?installRuntime\([\s\S]*?createLocalBackgroundTasks\(\)[\s\S]*?createLocalIntervalScheduler\(/);
-    expect(source).toMatch(/if\s*\(catalogLifecycle\)\s*startModelCatalogSync\(catalogLifecycle\)/);
+    expect(source).toMatch(/const runtimeProfile = resolveRuntimeProfile\(\);[\s\S]*?if\s*\(runtimeProfile\.isLocalPersistent\)\s*\{\s*const \{\s*startLocalComposition\s*\}\s*=\s*await import\(["']@\/lib\/runtime\/localComposition\.js["']\);\s*await startLocalComposition\(\);\s*\}/);
+    expect(source.match(/startLocalComposition\(\)/g)).toHaveLength(1);
+    expect(source).not.toMatch(/installRuntime|composeRuntime|createLocal(?:EphemeralStore|BackgroundTasks|IntervalScheduler)/);
     expect(source).not.toMatch(/isServerless|VERCEL|K_SERVICE|CF_PAGES/);
   });
 

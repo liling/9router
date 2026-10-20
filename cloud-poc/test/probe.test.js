@@ -22,12 +22,14 @@ test("D1 probe asynchronously writes and reads through its binding", async () =>
             return this;
           },
           async run() {
-            rows.set(statement.values[0], statement.values[1]);
+            const [namespace, key, valueJson] = statement.values;
+            rows.set(`${namespace}:${key}`, valueJson);
             return { success: true };
           },
           async first() {
-            const [key] = statement.values;
-            return rows.has(key) ? { key, value: rows.get(key) } : null;
+            const [namespace, key] = statement.values;
+            const value = rows.get(`${namespace}:${key}`);
+            return value ? { value_json: value } : null;
           },
         };
       },
@@ -40,6 +42,7 @@ test("D1 probe asynchronously writes and reads through its binding", async () =>
       body: JSON.stringify({ key: "test-key", value: "test-value" }),
     }),
     env,
+    { waitUntil(promise) { promise.catch(() => {}); } },
   );
 
   assert.equal(response.status, 200);
@@ -47,6 +50,6 @@ test("D1 probe asynchronously writes and reads through its binding", async () =>
     row: { key: "test-key", value: "test-value" },
     executor: "openai",
   });
-  assert.match(statements[0].sql, /^INSERT/);
-  assert.match(statements[1].sql, /^SELECT/);
+  assert.match(statements[0].sql.trim(), /^INSERT/);
+  assert.match(statements[1].sql.trim(), /^SELECT/);
 });
