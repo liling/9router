@@ -6,6 +6,10 @@ import { RUNTIME_PROFILES } from '../../../open-sse/runtime/profiles/index.js';
 import { createProfile } from '../../../open-sse/runtime/profiles/profile.js';
 import { assertBackgroundTasks, BACKGROUND_TASK_METHODS } from '../../../open-sse/runtime/ports/backgroundTasks.js';
 import { assertScheduler, SCHEDULER_METHODS } from '../../../open-sse/runtime/ports/scheduler.js';
+import { composeCloudflareBaseRuntime, composeCloudflareRequestRuntime } from '../../../open-sse/runtime/adapters/cloudflareProduction.js';
+import { createCloudflareBackgroundTasks } from '../../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js';
+import { createD1ApiKeyRepository } from '../../../open-sse/runtime/adapters/d1/apiKeyRepository.js';
+import { createD1EphemeralStore } from '../../../open-sse/runtime/adapters/d1/ephemeralStore.js';
 
 function testCompositionProfile(id, availablePorts) {
   const profile = RUNTIME_PROFILES[id];
@@ -41,7 +45,7 @@ describe('runtime capability contracts', () => {
 
   it('declares only implemented ports and records planned adapters separately', () => {
     const expectedPlannedPorts = {
-      'cloudflare-worker': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob'],
+      'cloudflare-worker': ['lease', 'secret', 'scheduler', 'blob'],
       'cloud-run': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
       'vercel-node': ['persistence', 'ephemeral', 'secret', 'backgroundTasks', 'scheduler'],
       'local-node': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
@@ -49,7 +53,9 @@ describe('runtime capability contracts', () => {
       'local-bun': ['persistence', 'ephemeral', 'lease', 'secret', 'backgroundTasks', 'scheduler', 'blob', 'process'],
     };
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
-      const expectedAvailablePorts = ['httpTransport'];
+      const expectedAvailablePorts = id === 'cloudflare-worker'
+        ? ['httpTransport', 'persistence', 'ephemeral', 'backgroundTasks']
+        : ['httpTransport'];
       expect(Object.keys(profile.ports).filter((port) => profile.ports[port].available)).toEqual(expectedAvailablePorts);
       expect(profile.ports.httpTransport.authoritative).toBe(true);
       expect(profile.ports.persistence.available).toBe(expectedAvailablePorts.includes('persistence'));
@@ -58,14 +64,14 @@ describe('runtime capability contracts', () => {
     }
     expect(Object.keys(RUNTIME_PROFILES['local-node'].ports)).toHaveLength(9);
     for (const [id, profile] of Object.entries(RUNTIME_PROFILES)) {
-      const expected = ['httpTransport'];
+      const expected = id === 'cloudflare-worker' ? ['httpTransport', 'backgroundTasks'] : ['httpTransport'];
       expect(profile.ports.backgroundTasks.available).toBe(expected.includes('backgroundTasks'));
       expect(profile.ports.scheduler.available).toBe(expected.includes('scheduler'));
     }
-    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({ available: false, authoritative: false, shared: true });
+    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({ available: true, authoritative: true, shared: true });
     expect(RUNTIME_PROFILES['local-node'].ports.ephemeral).toMatchObject({ available: false, authoritative: false, shared: false });
     expect(RUNTIME_PROFILES['cloud-run'].ports.ephemeral).toMatchObject({ available: false, planned: { shared: true } });
-    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.ephemeral).toMatchObject({ available: false, authoritative: false, shared: true });
+    expect(RUNTIME_PROFILES['cloudflare-worker'].ports.scheduler).toMatchObject({ available: false, planned: expect.any(Object) });
     expect(RUNTIME_PROFILES['cloud-run'].ports.backgroundTasks.planned.note).toMatch(/Best-effort/);
     expect(RUNTIME_PROFILES['cloudflare-worker'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
     expect(RUNTIME_PROFILES['vercel-node'].background).toEqual({ model: 'bounded-waituntil', survivesResponse: true, durable: false });
@@ -127,6 +133,46 @@ describe('runtime capability contracts', () => {
     expect(requestContext.assertPort('backgroundTasks')).toBe(requestTasks);
     expect(context.assertPort('backgroundTasks')).not.toBe(requestTasks);
     expect(() => extendRuntime(context, { scheduler: {} })).toThrow(/unavailable port/);
+  });
+
+  it('composes isolated request runtimes without mutating the installed base', async () => {
+    const base = composeCloudflareBaseRuntime(async () => new Response('ok'));
+    installRuntime(base);
+    const makeDb = () => {
+      const records = new Map();
+      return { prepare() { return { bind(...values) { this.values = values; return this; }, async run() {
+        const [namespace, key, value] = this.values;
+        records.set(`${namespace}:${key}`, value);
+        return { meta: { changes: 1 } };
+      }, async first() {
+        const [namespace, key] = this.values;
+        const value = records.get(`${namespace}:${key}`);
+        return value ? { value_json: value } : null;
+      } }; } };
+    };
+    const waitsA = [], waitsB = [];
+    const factories = {
+      createApiKeyRepository: createD1ApiKeyRepository,
+      createEphemeralStore: createD1EphemeralStore,
+      createBackgroundTasks: createCloudflareBackgroundTasks,
+    };
+    const a = composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: { waitUntil: (p) => waitsA.push(p) } });
+    const b = composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: { waitUntil: (p) => waitsB.push(p) } });
+    await Promise.all([
+      a.assertPort('ephemeral').put('ns', 'key', 'a', { ttlMs: 10000 }),
+      b.assertPort('ephemeral').put('ns', 'key', 'b', { ttlMs: 10000 }),
+    ]);
+    expect(await a.assertPort('ephemeral').peek('ns', 'key')).toBe('a');
+    expect(await b.assertPort('ephemeral').peek('ns', 'key')).toBe('b');
+    a.assertPort('backgroundTasks').enqueue({ id: 'a', execute: async () => {} });
+    b.assertPort('backgroundTasks').enqueue({ id: 'b', execute: async () => {} });
+    await Promise.all([...waitsA, ...waitsB]);
+    expect(waitsA).toHaveLength(1);
+    expect(waitsB).toHaveLength(1);
+    expect(getRuntime()).toBe(base);
+    for (const port of ['persistence', 'ephemeral', 'backgroundTasks']) expect(() => base.assertPort(port)).toThrow(RuntimeCapabilityError);
+    expect(() => composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: {}, executionContext: { waitUntil() {} } })).toThrow(/D1/);
+    expect(() => composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: {} })).toThrow(/background registration/);
   });
 
   it('requires durable background semantics and bounded work to survive the response', () => {

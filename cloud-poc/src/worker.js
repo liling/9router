@@ -2,17 +2,18 @@ import "../../open-sse/translator/register-serverless.js";
 import { initState, translateRequest, translateResponse } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
-import { composeRuntime, installRuntime } from "../../open-sse/runtime/context.js";
-import { composeCloudflareBackgroundRuntime } from "../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js";
+import { installRuntime, getRuntime } from "../../open-sse/runtime/context.js";
+import { composeCloudflareBaseRuntime, composeCloudflareRequestRuntime } from "../../open-sse/runtime/adapters/cloudflareProduction.js";
+import { createCloudflareBackgroundTasks } from "../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js";
+import { createD1ApiKeyRepository } from "../../open-sse/runtime/adapters/d1/apiKeyRepository.js";
+import { createD1EphemeralStore } from "../../open-sse/runtime/adapters/d1/ephemeralStore.js";
 import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
 import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
 
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
 
-const runtime = composeRuntime("cloudflare-worker", {
-  httpTransport: { fetch: globalThis.fetch.bind(globalThis) },
-});
+const runtime = composeCloudflareBaseRuntime();
 installRuntime(runtime);
 registerExecutorFetch(runtime.ports.httpTransport);
 
@@ -105,13 +106,21 @@ export default {
       return Response.json({ ok: true, runtime: "worker" });
     }
 
+    let requestRuntime;
+    try {
+      requestRuntime = composeCloudflareRequestRuntime({
+        baseRuntime: getRuntime(), env, executionContext,
+        createApiKeyRepository: createD1ApiKeyRepository,
+        createEphemeralStore: createD1EphemeralStore,
+        createBackgroundTasks: createCloudflareBackgroundTasks,
+      });
+    } catch (error) {
+      return Response.json({ error: "runtime_dependency_unavailable", message: error.message }, { status: 500 });
+    }
+
     if (incomingUrl.pathname === "/probe/background" && request.method === "POST") {
       const id = crypto.randomUUID();
       backgroundProbeState.set(id, "pending");
-      const requestRuntime = composeCloudflareBackgroundRuntime({
-        executionContext,
-        httpTransport: runtime.ports.httpTransport,
-      });
       requestRuntime.assertPort("backgroundTasks").enqueue({
         id,
         execute: async () => {
@@ -139,12 +148,10 @@ export default {
     }
 
     if (incomingUrl.pathname === "/probe/d1" && request.method === "POST") {
-      if (!env.DB) return Response.json({ error: "missing_d1_binding" }, { status: 500 });
       const { key, value } = await request.json();
-      await env.DB.prepare("INSERT OR REPLACE INTO probe_records (key, value) VALUES (?, ?)")
-        .bind(key, value).run();
-      const row = await env.DB.prepare("SELECT key, value FROM probe_records WHERE key = ?")
-        .bind(key).first();
+      const ephemeral = requestRuntime.assertPort("ephemeral");
+      await ephemeral.put("worker-probe", key, { key, value }, { ttlMs: 60_000 });
+      const row = await ephemeral.peek("worker-probe", key);
       return Response.json({ row, executor: getExecutor("openai").getProvider() });
     }
 
