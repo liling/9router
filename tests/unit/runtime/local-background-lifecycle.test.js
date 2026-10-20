@@ -46,4 +46,19 @@ describe('Local interval Scheduler', () => {
     expect(() => scheduler.schedule(invalidSpec)).toThrow(validationError.message);
     scheduler.close();
   });
+
+  it('rejects canonical cron triggers without creating a Local interval', () => {
+    vi.useFakeTimers();
+    const backgroundTasks = createLocalBackgroundTasks();
+    const scheduler = createLocalIntervalScheduler({ backgroundTasks });
+    const cronSpec = {
+      id: 'nightly-refresh',
+      trigger: { kind: 'cron', cron: '0 3 * * *' },
+      handlerId: 'nightly-sync',
+    };
+
+    expect(() => scheduler.schedule(cronSpec)).toThrow('Local Scheduler only supports interval triggers');
+    expect(vi.getTimerCount()).toBe(0);
+    scheduler.close();
+  });
 });

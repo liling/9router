@@ -9,6 +9,9 @@ export function createLocalIntervalScheduler({ backgroundTasks, onError = () => 
     schedule(scheduleSpec) {
       validateScheduleSpec(scheduleSpec);
       if (closed) throw new Error('Scheduler is closed');
+      if (scheduleSpec.trigger.kind !== 'interval') {
+        throw new TypeError('Local Scheduler only supports interval triggers');
+      }
       const { id, trigger: { intervalMs }, handlerId, execute } = scheduleSpec;
       clearInterval(intervals.get(id));
       const interval = setInterval(() => {
