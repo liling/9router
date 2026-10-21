@@ -7,7 +7,7 @@ This Worker PoC exercises the production OpenAI↔Claude request/response transl
 From this directory:
 
 ```sh
-npm install
+npm ci
 npm test
 npm run build
 ```

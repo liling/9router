@@ -109,3 +109,33 @@ test("serverless registry explicitly rejects Local-only executors", () => {
 test("serverless registry executes only the production DefaultExecutor", () => {
   assert.equal(getExecutor("openai").constructor.name, "DefaultExecutor");
 });
+
+test("remote validation probes are disabled unless validation mode is explicit", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/probe/validation/missing-binding"),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 404);
+});
+
+test("validation probes reject requests without the per-run credential", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/probe/validation/missing-binding"),
+    { VALIDATION_MODE: "true", VALIDATION_PROBE_TOKEN: "expected-token" },
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 404);
+});
+
+test("validation composition fails closed when D1 is missing", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/probe/validation/missing-binding", {
+      headers: { "x-validation-token": "test-validation-token" },
+    }),
+    { VALIDATION_MODE: "true", VALIDATION_PROBE_TOKEN: "test-validation-token" },
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { failClosed: true });
+});

@@ -1,0 +1,179 @@
+name: Cloudflare deployment validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      human_acceptance_confirmed:
+        description: Confirm Human Acceptance approved this workflow and the isolated target.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/serverless-architecture'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: cloudflare-validation
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      VALIDATION_WORKER: 9router-mem475-validation-${{ github.run_id }}-${{ github.run_attempt }}
+      VALIDATION_DATABASE: 9router-mem475-validation-${{ github.run_id }}-${{ github.run_attempt }}
+      EVIDENCE_PATH: ${{ runner.temp }}/cloudflare-validation/evidence.json
+
+    steps:
+      - name: Require explicit human approval and isolated target config
+        env:
+          HUMAN_ACCEPTANCE_CONFIRMED: ${{ inputs.human_acceptance_confirmed }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -eu
+          if [ "$HUMAN_ACCEPTANCE_CONFIRMED" != "true" ]; then
+            echo "Human Acceptance confirmation is required; no Cloudflare resources were changed."
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || ! printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | grep -Eq '^[a-fA-F0-9]{32}$'; then
+            echo "Configure CLOUDFLARE_API_TOKEN (secret) and CLOUDFLARE_ACCOUNT_ID (variable) in the cloudflare-validation Environment."
+            exit 1
+          fi
+
+      - name: Check out accepted source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify accepted-base ancestry
+        run: git merge-base --is-ancestor 34b538b97a1e7593b884eedeba89d349cf5392d8 HEAD
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+
+      - name: Install locked Cloudflare PoC dependencies
+        working-directory: cloud-poc
+        run: npm ci
+
+      - name: Run Local Workerd control tests and build
+        id: local_checks
+        working-directory: cloud-poc
+        run: |
+          npm test
+          npm run build
+
+      - name: Refuse pre-existing validation resource names
+        working-directory: cloud-poc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/cloudflare-resources.mjs preflight
+
+      - name: Create isolated D1 database
+        id: database
+        working-directory: cloud-poc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -eu
+          database_id="$(node scripts/cloudflare-resources.mjs create-database)"
+          printf 'id=%s\n' "$database_id" >> "$GITHUB_OUTPUT"
+
+      - name: Generate per-run probe credential
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/cloudflare-validation"
+          umask 077
+          openssl rand -hex 32 > "$RUNNER_TEMP/cloudflare-validation/probe-token"
+
+      - name: Write isolated Worker config
+        working-directory: cloud-poc
+        env:
+          VALIDATION_DATABASE_ID: ${{ steps.database.outputs.id }}
+          VALIDATION_CONFIG: ${{ runner.temp }}/cloudflare-validation/wrangler.toml
+          VALIDATION_PROBE_TOKEN_FILE: ${{ runner.temp }}/cloudflare-validation/probe-token
+        run: node scripts/write-validation-config.mjs
+
+      - name: Apply D1 migrations
+        id: migrations
+        working-directory: cloud-poc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VALIDATION_CONFIG: ${{ runner.temp }}/cloudflare-validation/wrangler.toml
+        run: |
+          if ! npx wrangler d1 migrations apply "$VALIDATION_DATABASE" --remote --config "$VALIDATION_CONFIG" > "$RUNNER_TEMP/d1-migrations.log" 2>&1; then
+            echo "Remote D1 migrations failed; details are withheld from workflow logs."
+            exit 1
+          fi
+
+      - name: Deploy isolated validation Worker
+        id: deploy
+        working-directory: cloud-poc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VALIDATION_CONFIG: ${{ runner.temp }}/cloudflare-validation/wrangler.toml
+        run: |
+          set -eu
+          printf 'cleanup_worker=true\n' >> "$GITHUB_OUTPUT"
+          if ! npx wrangler deploy --config "$VALIDATION_CONFIG" > "$RUNNER_TEMP/worker-deploy.log" 2>&1; then
+            echo "Validation Worker deployment failed; details are withheld from workflow logs."
+            exit 1
+          fi
+          worker_url="$(node --input-type=module - "$RUNNER_TEMP/worker-deploy.log" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const text = readFileSync(process.argv[2], "utf8");
+          const match = text.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/i);
+          if (!match) process.exit(1);
+          process.stdout.write(match[0]);
+          NODE
+          )" || { echo "Could not identify the isolated workers.dev endpoint."; exit 1; }
+          printf 'url=%s\n' "$worker_url" >> "$GITHUB_OUTPUT"
+
+      - name: Run remote D1 and runtime validation
+        id: smoke
+        if: ${{ steps.deploy.outputs.url != '' }}
+        working-directory: cloud-poc
+        env:
+          VALIDATION_URL: ${{ steps.deploy.outputs.url }}
+          VALIDATION_PROBE_TOKEN_FILE: ${{ runner.temp }}/cloudflare-validation/probe-token
+        run: node scripts/remote-validation.mjs
+
+      - name: Safely clean up isolated validation resources
+        if: always()
+        working-directory: cloud-poc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VALIDATION_DATABASE_ID: ${{ steps.database.outputs.id }}
+          CLEANUP_WORKER: ${{ steps.deploy.outputs.cleanup_worker }}
+          LOCAL_CHECKS_RESULT: ${{ steps.local_checks.outcome }}
+          MIGRATIONS_RESULT: ${{ steps.migrations.outcome }}
+          DEPLOY_RESULT: ${{ steps.deploy.outcome }}
+          REMOTE_CHECKS_RESULT: ${{ steps.smoke.outcome }}
+        run: |
+          set +e
+          cleanup_result="not-started"
+          if [ "$CLEANUP_WORKER" = "true" ] || [ -n "$VALIDATION_DATABASE_ID" ]; then
+            if node scripts/cloudflare-resources.mjs cleanup; then
+              cleanup_result="removed-or-absent"
+            else
+              cleanup_result="FAILED"
+            fi
+          fi
+          CLEANUP_RESULT="$cleanup_result" node scripts/finalize-evidence.mjs
+          if [ "$cleanup_result" = "FAILED" ]; then exit 1; fi
+
+      - name: Upload sanitized validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cloudflare-validation-${{ github.run_id }}
+          path: ${{ runner.temp }}/cloudflare-validation/evidence.json
+          if-no-files-found: ignore
+          retention-days: 14
