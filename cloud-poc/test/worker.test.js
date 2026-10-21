@@ -109,3 +109,77 @@ test("serverless registry explicitly rejects Local-only executors", () => {
 test("serverless registry executes only the production DefaultExecutor", () => {
   assert.equal(getExecutor("openai").constructor.name, "DefaultExecutor");
 });
+
+test("remote validation probes are disabled unless validation mode is explicit", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/probe/validation/missing-binding"),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 404);
+});
+
+test("validation probes reject requests without the per-run credential", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/probe/validation/missing-binding"),
+    { VALIDATION_MODE: "true", VALIDATION_PROBE_TOKEN: "expected-token" },
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 404);
+});
+
+test("validation composition fails closed when D1 is missing", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/probe/validation/missing-binding", {
+      headers: { "x-validation-token": "test-validation-token" },
+    }),
+    { VALIDATION_MODE: "true", VALIDATION_PROBE_TOKEN: "test-validation-token" },
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { failClosed: true });
+});
+
+test("validation persistence probe uses the composed repository and cleans up its synthetic record", async () => {
+  const records = new Map();
+  const db = {
+    prepare(sql) {
+      let values = [];
+      return {
+        bind(...nextValues) { values = nextValues; return this; },
+        async run() {
+          if (sql.startsWith("INSERT INTO api_keys")) {
+            const [id, key, name, machineId, isActive, createdAt, accessRestricted, accessAllow] = values;
+            records.set(key, { id, key, name, machine_id: machineId, is_active: isActive, created_at: createdAt,
+              access_restricted: accessRestricted, access_allow: accessAllow });
+            return { meta: { changes: 1 } };
+          }
+          if (sql.startsWith("DELETE FROM api_keys")) return { meta: { changes: records.delete(values[0]) ? 1 : 0 } };
+          throw new Error("Unexpected D1 write in repository probe test");
+        },
+        async first() {
+          if (sql.includes("FROM api_keys WHERE key = ?")) return records.get(values[0]) || null;
+          throw new Error("Unexpected D1 read in repository probe test");
+        },
+      };
+    },
+  };
+  const env = { VALIDATION_MODE: "true", VALIDATION_PROBE_TOKEN: "test-validation-token", DB: db };
+  const executionContext = { waitUntil() {} };
+  const key = `validation:${crypto.randomUUID()}`;
+  const headers = { "x-validation-token": env.VALIDATION_PROBE_TOKEN };
+  const write = await worker.fetch(new Request("https://worker.test/probe/validation/persistence", {
+    method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ key }),
+  }), env, executionContext);
+  assert.deepEqual(await write.json(), { written: true });
+
+  const read = await worker.fetch(new Request(`https://worker.test/probe/validation/persistence/${encodeURIComponent(key)}`, { headers }), env, executionContext);
+  const body = await read.json();
+  assert.equal(read.status, 200);
+  assert.equal(body.record.key, key);
+  assert.equal(body.deleted, true);
+  assert.equal(records.size, 0);
+
+  const missing = await worker.fetch(new Request(`https://worker.test/probe/validation/persistence/${encodeURIComponent(key)}`, { headers }), env, executionContext);
+  assert.equal(missing.status, 404);
+});

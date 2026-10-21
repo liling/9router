@@ -103,7 +103,29 @@ export default {
     const incomingUrl = new URL(request.url);
 
     if (incomingUrl.pathname === "/health") {
-      return Response.json({ ok: true, runtime: "worker" });
+      return Response.json({ ok: true, runtime: "worker", profile: runtime.descriptor.id });
+    }
+
+    if (incomingUrl.pathname.startsWith("/probe/validation/") &&
+        (env.VALIDATION_MODE !== "true" || !env.VALIDATION_PROBE_TOKEN ||
+          request.headers.get("x-validation-token") !== env.VALIDATION_PROBE_TOKEN)) {
+      return Response.json({ error: "not_found" }, { status: 404 });
+    }
+
+    if (incomingUrl.pathname === "/probe/validation/missing-binding" && request.method === "GET") {
+      try {
+        composeCloudflareRequestRuntime({
+          baseRuntime: getRuntime(), env: { ...env, DB: undefined }, executionContext,
+          createApiKeyRepository: createD1ApiKeyRepository,
+          createEphemeralStore: createD1EphemeralStore,
+          createBackgroundTasks: createCloudflareBackgroundTasks,
+        });
+        return Response.json({ error: "missing_binding_was_accepted" }, { status: 500 });
+      } catch (error) {
+        return error.message === "Missing required runtime dependency: D1"
+          ? Response.json({ failClosed: true })
+          : Response.json({ error: "unexpected_validation_failure" }, { status: 500 });
+      }
     }
 
     let requestRuntime;
@@ -116,6 +138,81 @@ export default {
       });
     } catch (error) {
       return Response.json({ error: "runtime_dependency_unavailable", message: error.message }, { status: 500 });
+    }
+
+    if (incomingUrl.pathname === "/probe/validation/persistence" && request.method === "POST") {
+      const { key } = await request.json();
+      if (typeof key !== "string" || !/^validation:[a-zA-Z0-9-]+$/.test(key)) {
+        return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      }
+      const repository = requestRuntime.assertPort("persistence");
+      await repository.insert({
+        id: key,
+        key,
+        name: "MEM-475 validation probe",
+        machineId: null,
+        isActive: false,
+        createdAt: new Date().toISOString(),
+        access: { restricted: false, allow: [] },
+      });
+      return Response.json({ written: true });
+    }
+
+    if (incomingUrl.pathname.startsWith("/probe/validation/persistence/") && request.method === "GET") {
+      const key = decodeURIComponent(incomingUrl.pathname.slice("/probe/validation/persistence/".length));
+      if (!/^validation:[a-zA-Z0-9-]+$/.test(key)) return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      const repository = requestRuntime.assertPort("persistence");
+      const record = await repository.findByKey(key);
+      if (!record) return Response.json({ error: "not_found" }, { status: 404 });
+      const deleted = await repository.delete(record.id);
+      return Response.json({ record, deleted });
+    }
+
+    if (incomingUrl.pathname === "/probe/validation/ephemeral" && request.method === "POST") {
+      const { namespace, key, value } = await request.json();
+      if (![namespace, key, value].every((item) => typeof item === "string")) {
+        return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      }
+      const ephemeral = requestRuntime.assertPort("ephemeral");
+      await ephemeral.put(namespace, key, value, { ttlMs: 60_000 });
+      return Response.json({ written: true });
+    }
+
+    if (incomingUrl.pathname.startsWith("/probe/validation/ephemeral/") && request.method === "GET") {
+      const [, , , , namespace, key] = incomingUrl.pathname.split("/");
+      if (!namespace || !key) return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      const value = await requestRuntime.assertPort("ephemeral").peek(namespace, key);
+      return value ? Response.json({ namespace, key, value }) : Response.json({ error: "not_found" }, { status: 404 });
+    }
+
+    if (incomingUrl.pathname === "/probe/validation/background" && request.method === "POST") {
+      const { id } = await request.json();
+      if (typeof id !== "string" || !/^validation:[a-zA-Z0-9-]+$/.test(id)) {
+        return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      }
+      requestRuntime.assertPort("backgroundTasks").enqueue({
+        id,
+        execute: () => env.DB.prepare("INSERT OR REPLACE INTO validation_background (id, completed_at) VALUES (?, CURRENT_TIMESTAMP)").bind(id).run(),
+      });
+      return Response.json({ accepted: true, durable: false });
+    }
+
+    if (incomingUrl.pathname.startsWith("/probe/validation/background/") && request.method === "GET") {
+      const id = decodeURIComponent(incomingUrl.pathname.slice("/probe/validation/background/".length));
+      const row = await env.DB.prepare("SELECT id, completed_at FROM validation_background WHERE id = ?").bind(id).first();
+      return row ? Response.json({ completed: true, durable: false, ...row }) : Response.json({ completed: false, durable: false });
+    }
+
+    if (incomingUrl.pathname === "/probe/validation/context" && request.method === "POST") {
+      const { requestId, value } = await request.json();
+      if (typeof requestId !== "string" || typeof value !== "string") {
+        return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      }
+      const ephemeral = requestRuntime.assertPort("ephemeral");
+      const namespace = `validation:request-context:${requestId}`;
+      await ephemeral.put(namespace, "context", value, { ttlMs: 60_000 });
+      const isolatedValue = await ephemeral.peek(namespace, "context");
+      return Response.json({ requestId, value: isolatedValue, profile: requestRuntime.descriptor.id });
     }
 
     if (incomingUrl.pathname === "/probe/background" && request.method === "POST") {
