@@ -51,9 +51,11 @@ const suffix = `${runId}-${crypto.randomUUID()}`;
 const key = `validation:${suffix}`;
 const value = `non-secret:${suffix}`;
 await check("d1-persistence-across-requests", async () => {
-  const write = await request("/probe/validation/persistence", { method: "POST", body: { key, value } });
+  const write = await request("/probe/validation/persistence", { method: "POST", body: { key } });
   const read = await request(`/probe/validation/persistence/${encodeURIComponent(key)}`);
-  if (write.status !== 200 || !write.json.written || read.status !== 200 || read.json.value !== value) {
+  const afterCleanup = await request(`/probe/validation/persistence/${encodeURIComponent(key)}`);
+  if (write.status !== 200 || !write.json.written || read.status !== 200 || read.json.record?.key !== key ||
+      read.json.deleted !== true || afterCleanup.status !== 404) {
     throw new Error("D1 persistence probe failed");
   }
 });

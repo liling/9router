@@ -141,18 +141,31 @@ export default {
     }
 
     if (incomingUrl.pathname === "/probe/validation/persistence" && request.method === "POST") {
-      const { key, value } = await request.json();
-      if (typeof key !== "string" || !key.startsWith("validation:") || typeof value !== "string") {
+      const { key } = await request.json();
+      if (typeof key !== "string" || !/^validation:[a-zA-Z0-9-]+$/.test(key)) {
         return Response.json({ error: "invalid_probe_input" }, { status: 400 });
       }
-      await env.DB.prepare("INSERT OR REPLACE INTO probe_records (key, value) VALUES (?, ?)").bind(key, value).run();
+      const repository = requestRuntime.assertPort("persistence");
+      await repository.insert({
+        id: key,
+        key,
+        name: "MEM-475 validation probe",
+        machineId: null,
+        isActive: false,
+        createdAt: new Date().toISOString(),
+        access: { restricted: false, allow: [] },
+      });
       return Response.json({ written: true });
     }
 
     if (incomingUrl.pathname.startsWith("/probe/validation/persistence/") && request.method === "GET") {
       const key = decodeURIComponent(incomingUrl.pathname.slice("/probe/validation/persistence/".length));
-      const row = await env.DB.prepare("SELECT key, value FROM probe_records WHERE key = ?").bind(key).first();
-      return row ? Response.json(row) : Response.json({ error: "not_found" }, { status: 404 });
+      if (!/^validation:[a-zA-Z0-9-]+$/.test(key)) return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      const repository = requestRuntime.assertPort("persistence");
+      const record = await repository.findByKey(key);
+      if (!record) return Response.json({ error: "not_found" }, { status: 404 });
+      const deleted = await repository.delete(record.id);
+      return Response.json({ record, deleted });
     }
 
     if (incomingUrl.pathname === "/probe/validation/ephemeral" && request.method === "POST") {
