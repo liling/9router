@@ -99,7 +99,4 @@ describe("translator registration contract", () => {
     assert.equal(parseDataUri(null), null);
   });
 
-  it("passes focused translator golden and roundtrip suites", () => {
-    execFileSync("npm", ["exec", "--yes", "--package", "vitest@4", "--", "vitest", "run", "--config", "tests/vitest.config.js", "tests/translator/golden-request.test.js", "tests/translator/golden-response-stream.test.js", "tests/translator/format-roundtrip.test.js"], { cwd: root, stdio: "inherit" });
-  });
 });
