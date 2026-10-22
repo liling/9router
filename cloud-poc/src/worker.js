@@ -97,10 +97,19 @@ function translateSSE(body, clientFormat, onCancel) {
 }
 
 const backgroundProbeState = new Map();
+const cancelTelemetry = new Map();
+const maxCancelTelemetryEntries = 1024;
 
 export default {
   async fetch(request, env, executionContext) {
     const incomingUrl = new URL(request.url);
+
+    if (incomingUrl.pathname.startsWith("/probe/cancel-telemetry/") && request.method === "GET") {
+      const requestId = decodeURIComponent(incomingUrl.pathname.slice("/probe/cancel-telemetry/".length));
+      const record = cancelTelemetry.get(requestId) || null;
+      if (record) cancelTelemetry.delete(requestId);
+      return Response.json({ record });
+    }
 
     if (incomingUrl.pathname === "/health") {
       return Response.json({ ok: true, runtime: "worker", profile: runtime.descriptor.id });
@@ -257,6 +266,13 @@ export default {
     }
     if (!env.UPSTREAM_ORIGIN) return Response.json({ error: "missing_upstream_origin" }, { status: 500 });
 
+    const requestId = request.headers.get("x-poc-request-id") || crypto.randomUUID();
+    while (cancelTelemetry.size >= maxCancelTelemetryEntries) {
+      cancelTelemetry.delete(cancelTelemetry.keys().next().value);
+    }
+    const telemetry = { requestId, receivedAt: new Date().toISOString(), cancelDispatchedAt: null };
+    cancelTelemetry.set(requestId, telemetry);
+
     const clientFormat = request.headers.get("x-poc-client-format") === FORMATS.OPENAI
       ? FORMATS.OPENAI
       : FORMATS.CLAUDE;
@@ -299,7 +315,10 @@ export default {
         return Response.json(translateJSONResponse(await upstreamResponse.json(), state, clientFormat));
       }
 
-      return new Response(translateSSE(upstreamResponse.body, clientFormat, () => executionAbort.abort()), {
+      return new Response(translateSSE(upstreamResponse.body, clientFormat, () => {
+        telemetry.cancelDispatchedAt = new Date().toISOString();
+        executionAbort.abort();
+      }), {
         status: upstreamResponse.status,
         headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache" },
       });
