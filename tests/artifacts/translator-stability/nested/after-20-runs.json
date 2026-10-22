@@ -1,0 +1,208 @@
+{
+  "phase": "after",
+  "test": "tests/unit/translator-registration-contract.test.js",
+  "repeatCount": 20,
+  "allPassed": true,
+  "runs": [
+    {
+      "run": 1,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1766.738525390625
+    },
+    {
+      "run": 2,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1722.715576171875
+    },
+    {
+      "run": 3,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1733.824462890625
+    },
+    {
+      "run": 4,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1758.697509765625
+    },
+    {
+      "run": 5,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1977.73779296875
+    },
+    {
+      "run": 6,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1724.69091796875
+    },
+    {
+      "run": 7,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1986.88623046875
+    },
+    {
+      "run": 8,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1984.744384765625
+    },
+    {
+      "run": 9,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1689.712646484375
+    },
+    {
+      "run": 10,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1666.75390625
+    },
+    {
+      "run": 11,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1667.6279296875
+    },
+    {
+      "run": 12,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1672.73193359375
+    },
+    {
+      "run": 13,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1679.77099609375
+    },
+    {
+      "run": 14,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1819.81640625
+    },
+    {
+      "run": 15,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1699.732666015625
+    },
+    {
+      "run": 16,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1661.752197265625
+    },
+    {
+      "run": 17,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1698.8330078125
+    },
+    {
+      "run": 18,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1686.937744140625
+    },
+    {
+      "run": 19,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1784.732421875
+    },
+    {
+      "run": 20,
+      "success": true,
+      "totalSuites": 2,
+      "passedSuites": 2,
+      "totalTests": 5,
+      "passedTests": 5,
+      "failedTests": 0,
+      "durationMs": 1967.84716796875
+    }
+  ]
+}
