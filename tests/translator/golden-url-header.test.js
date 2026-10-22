@@ -32,10 +32,28 @@ function sanitize(headers) {
       out[k] = "<UUID>";
       continue;
     }
+    if (k === "X-Mavis-Timezone-Offset") {
+      const offset = Number(v);
+      expect(Number.isInteger(offset) && offset >= -43200 && offset <= 50400).toBe(true);
+      expect(offset).toBe(-new Date().getTimezoneOffset() * 60);
+      out[k] = "<LOCAL_TZ_OFFSET_SECONDS>";
+      continue;
+    }
+    if (k === "X-Msh-Device-Model") {
+      expect(typeof v).toBe("string");
+      expect(v.length).toBeGreaterThan(0);
+      out[k] = "<ENV:DEVICE_MODEL>";
+      continue;
+    }
+    if (["X-Stainless-Arch", "X-Stainless-Os", "X-Stainless-Runtime-Version", "X-PLATFORM", "X-PLATFORM-VERSION"].includes(k)) {
+      out[k] = `<ENV:${k}>`;
+      continue;
+    }
     out[k] = typeof v === "string"
       ? v.replace(/Bearer .+/, "Bearer <TOK>")
           .replace(/sk-test-APIKEY|tok-test-ACCESS/g, "<CRED>")
           .replace(/kimi-\d{10,}/g, "kimi-<TS>")
+          .replace(/\((?:linux|darwin|win32);\s*(?:x64|x86_64|arm64|aarch64)\)/gi, "(<ENV:OS>; <ENV:ARCH>)")
       : v;
   }
   return out;
