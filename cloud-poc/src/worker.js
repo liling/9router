@@ -257,6 +257,9 @@ export default {
     }
     if (!env.UPSTREAM_ORIGIN) return Response.json({ error: "missing_upstream_origin" }, { status: 500 });
 
+    const requestId = request.headers.get("x-poc-request-id") || crypto.randomUUID();
+    console.log(JSON.stringify({ event: "cancel-telemetry", requestId, receivedAt: new Date().toISOString() }));
+
     const clientFormat = request.headers.get("x-poc-client-format") === FORMATS.OPENAI
       ? FORMATS.OPENAI
       : FORMATS.CLAUDE;
@@ -271,6 +274,13 @@ export default {
       },
     };
     const executionAbort = new AbortController();
+    executionAbort.signal.addEventListener("abort", () => {
+      queueMicrotask(() => console.log(JSON.stringify({
+        event: "cancel-telemetry",
+        requestId,
+        cancelDispatchedAt: new Date().toISOString(),
+      })));
+    }, { once: true });
     if (request.signal.aborted) executionAbort.abort(request.signal.reason);
     else request.signal.addEventListener("abort", () => executionAbort.abort(request.signal.reason), { once: true });
 
