@@ -25,8 +25,8 @@ test("deployable Worker does not expose API-key operations", async (context) => 
   });
   assert.equal(migrations.status, 0, migrations.stderr || migrations.stdout);
 
-  let resolveUpstreamAbort;
-  const upstreamAbort = new Promise((resolve) => { resolveUpstreamAbort = resolve; });
+  let resolveUpstreamClose;
+  const upstreamClosed = new Promise((resolve) => { resolveUpstreamClose = resolve; });
   let serverProcess;
   let upstream;
   let logs = "";
@@ -44,7 +44,7 @@ test("deployable Worker does not expose API-key operations", async (context) => 
     if (input.model === "mock-abort") {
       response.writeHead(200, { "content-type": "text/event-stream" });
       response.write(`data: ${JSON.stringify({ id: "abort-1", model: input.model, choices: [{ delta: { content: "first" } }] })}\n\n`);
-      response.on("close", () => resolveUpstreamAbort());
+      response.on("close", () => resolveUpstreamClose(new Date().toISOString()));
       return;
     }
     if (input.stream) {
@@ -177,11 +177,12 @@ test("deployable Worker does not expose API-key operations", async (context) => 
   assert.equal(errorResponse.status, 429);
   assert.deepEqual(await errorResponse.json(), { error: { message: "mock rate limit" } });
 
+  const cancelRequestId = `cancel-${crypto.randomUUID()}`;
   await new Promise((resolveRequest, rejectRequest) => {
     let cancelled = false;
     const clientRequest = httpRequest(`${workerOrigin}/v1/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-poc-request-id": cancelRequestId },
     }, (response) => {
       response.once("data", () => {
         cancelled = true;
@@ -195,13 +196,24 @@ test("deployable Worker does not expose API-key operations", async (context) => 
     });
     clientRequest.end(JSON.stringify({ model: "mock-abort", messages: [{ role: "user", content: "cancel" }], stream: true }));
   });
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("upstream was not cancelled")), 5000);
-    upstreamAbort.then(() => {
-      clearTimeout(timeout);
-      resolve();
-    }, reject);
-  });
+  let closeTimeout;
+  const upstreamCloseAt = await Promise.race([
+    upstreamClosed,
+    new Promise((resolve) => { closeTimeout = setTimeout(() => resolve(null), 5000); }),
+  ]);
+  clearTimeout(closeTimeout);
+  if (upstreamCloseAt) {
+    console.log(`CANCEL_OUTCOME_PASS requestId=${cancelRequestId} upstreamClosedAt=${upstreamCloseAt}`);
+  } else {
+    const telemetryResponse = await fetch(`${workerOrigin}/probe/cancel-telemetry/${encodeURIComponent(cancelRequestId)}`);
+    assert.equal(telemetryResponse.status, 200);
+    const { record } = await telemetryResponse.json();
+    assert.ok(record?.receivedAt, `cancel telemetry missing for request ${cancelRequestId}; logs:\n${logs}`);
+    if (record.cancelDispatchedAt) {
+      assert.fail(`Case B: cancel dispatched for request ${cancelRequestId} at ${record.cancelDispatchedAt}; upstream remained open for W=5000ms`);
+    }
+    console.error(`HOST_CANCEL_DISPATCH_MISS requestId=${cancelRequestId} receivedAt=${record.receivedAt}`);
+  }
 
   const localOnlyResponse = await fetch(`${workerOrigin}/probe/local-only`);
   assert.equal(localOnlyResponse.status, 403);
