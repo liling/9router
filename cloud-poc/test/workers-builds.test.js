@@ -11,7 +11,7 @@ const validEnv = {
   WORKERS_CI_ACCOUNT_ID: "a".repeat(32),
   D1_DATABASE_ID: "12345678-1234-1234-1234-123456789abc",
   VALIDATION_URL: "https://9router.account-subdomain.workers.dev",
-  VALIDATION_PROBE_TOKEN: "ab".repeat(32),
+  VALIDATION_PROBE_TOKEN: Array.from({ length: 64 }, (_, index) => "0123456789abcdef"[index % 16]).join(""),
 };
 
 const successfulCommand = (command, args) => ({
@@ -44,7 +44,13 @@ test("deployment settings gate UUID, account, D1, target, and high-entropy crede
     { WORKERS_CI_BUILD_UUID: "" },
     { VALIDATION_URL: "https://other-account.workers.dev" },
     { VALIDATION_PROBE_TOKEN: "weak" },
-  ]) assert.throws(() => validateDeploySettings({ ...validEnv, ...change }));
+    { VALIDATION_PROBE_TOKEN: "ab".repeat(32) },
+  ]) {
+    assert.throws(() => validateDeploySettings({ ...validEnv, ...change }));
+    let invoked = false;
+    assert.throws(() => run("deploy", { ...validEnv, ...change }, () => { invoked = true; }));
+    assert.equal(invoked, false);
+  }
   assert.doesNotThrow(() => validateDeploySettings(validEnv));
 });
 

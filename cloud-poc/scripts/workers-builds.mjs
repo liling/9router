@@ -8,7 +8,18 @@ const validSha = /^[a-f0-9]{40}$/i;
 const validUuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const validD1Id = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const validAccountId = /^[a-f0-9]{32}$/i;
-const strongProbeToken = /^(?:[a-f0-9]{2}){32,}$/i;
+const probeTokenFormat = /^(?:[a-f0-9]{2}){32,}$/i;
+
+function hasStrongProbeTokenEntropy(token) {
+  if (!probeTokenFormat.test(token || "")) return false;
+  const counts = new Map();
+  for (const character of token.toLowerCase()) counts.set(character, (counts.get(character) || 0) + 1);
+  const entropy = [...counts.values()].reduce((total, count) => {
+    const probability = count / token.length;
+    return total - probability * Math.log2(probability);
+  }, 0);
+  return counts.size >= 12 && entropy >= 3.25;
+}
 
 export function validateBuildIdentity(env) {
   if (env.WORKERS_CI !== "1") throw new Error("Workers Builds identity missing");
@@ -20,7 +31,7 @@ export function validateBuildIdentity(env) {
 
 export function validateDeploySettings(env) {
   if (!validUuid.test(env.WORKERS_CI_BUILD_UUID || "")) throw new Error("Invalid Workers Builds build UUID");
-  if (!strongProbeToken.test(env.VALIDATION_PROBE_TOKEN || "")) throw new Error("Validation credential must be high entropy");
+  if (!hasStrongProbeTokenEntropy(env.VALIDATION_PROBE_TOKEN)) throw new Error("Validation credential must be high entropy");
   const url = new URL(env.VALIDATION_URL || "invalid:");
   if (url.protocol !== "https:" || !/^9router\.[a-z0-9-]+\.workers\.dev$/i.test(url.hostname) || url.pathname !== "/") {
     throw new Error("Validation target must be the configured 9router Worker URL");
