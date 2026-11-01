@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -45,6 +45,18 @@ afterAll(() => {
 });
 
 describe("model catalog", () => {
+  it("does not schedule without injected ports or when the kill-switch is off", () => {
+    expect(startModelCatalogSync()).toBe(false);
+    const previousKillSwitch = process.env.MODEL_CATALOG_SYNC;
+    process.env.MODEL_CATALOG_SYNC = "off";
+    try {
+      expect(startModelCatalogSync({ scheduler: { schedule() {} } })).toBe(false);
+    } finally {
+      if (previousKillSwitch === undefined) delete process.env.MODEL_CATALOG_SYNC;
+      else process.env.MODEL_CATALOG_SYNC = previousKillSwitch;
+    }
+  });
+
   it("keys modalities by gateway and writes no model-only key", () => {
     const { models } = build(upstream, entries);
     // upstream "zai" is filed under the local id requests arrive with...
@@ -154,7 +166,14 @@ describe("catalog schema", () => {
   it("rebuilds an older-schema file instead of trusting its etag", async () => {
     fs.writeFileSync(catalogFile, JSON.stringify({ v: 1, etag: 'W/"old"', models: {}, providers: {} }));
     invalidateCatalog();
-    startModelCatalogSync();   // picks the file's etag + schema version back up
+    const registrations = [];
+    const scheduler = { schedule: vi.fn((registration) => registrations.push(registration)) };
+    expect(startModelCatalogSync({ scheduler })).toBe(true);
+    expect(registrations[0]).toMatchObject({
+      id: "model-catalog-sync",
+      trigger: { kind: "interval", intervalMs: 60_000 },
+      handlerId: "model-catalog-sync",
+    });
 
     const sent = [];
     const realFetch = globalThis.fetch;
@@ -163,7 +182,7 @@ describe("catalog schema", () => {
       return { ok: true, status: 200, headers: new Map([["etag", 'W/"new"']]), json: async () => upstream };
     };
     try {
-      expect((await syncModelCatalog()).status).toBe("updated");
+      await registrations[0].execute();
     } finally {
       globalThis.fetch = realFetch;
     }
@@ -171,6 +190,16 @@ describe("catalog schema", () => {
     const written = JSON.parse(fs.readFileSync(catalogFile, "utf8"));
     expect(written.v).toBe(2);
     expect(written.models["glm:glm-4.6v"]).toEqual({ vision: true });
+    expect(registrations.at(-1).trigger.intervalMs).toBe(24 * 60 * 60 * 1000);
+
+    const successfulFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false, status: 503, headers: new Map(), json: async () => ({}) });
+    try {
+      await registrations.at(-1).execute();
+      expect(registrations.at(-1).trigger.intervalMs).toBe(30 * 60 * 1000);
+    } finally {
+      globalThis.fetch = successfulFetch;
+    }
   });
 
   it("asks upstream for a 304 once the file is current", async () => {

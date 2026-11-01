@@ -6,12 +6,13 @@
   "description": "Unit tests for 9router embeddings endpoint",
   "scripts": {
     "test": "vitest run --reporter=verbose",
+    "test:persistence": "node run-persistence-matrix.mjs",
     "test:watch": "vitest --reporter=verbose"
   },
   "devDependencies": {
     "vitest": "^4.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

@@ -555,3 +555,16 @@ Environment variables actively used by code:
 - `GET /api/settings`
 - `GET /api/v1/models`
 - CLI target base URL should be `http://<host>:20128/v1` when `PORT=20128`
+
+## Runtime Deployment Decision Matrix
+
+This matrix describes current repository support, not a promise that a deployment target has a composed runtime. A runtime profile is not implemented merely because the platform can execute Node.js or Bun code.
+
+| Target | Current position | Runtime ports and lifecycle | Decision |
+| --- | --- | --- | --- |
+| Docker | Runs the Node.js application in a container using Local Node composition and filesystem-backed persistence. | Local Node composition provides HTTP transport, persistence, ephemeral state, background tasks, and scheduler. Container restarts and replica scaling still affect process-local work; distributed lease and durable background queue are not provided. | Supported as a packaged Local Node deployment when storage is mounted and operational limits are understood. Docker is not a separate composed runtime profile. |
+| Bun | The application can be experimented with under Bun, but `local-bun` has no production composition. | Only HTTP transport is available; persistence, ephemeral state, background tasks, scheduler, lease, secrets, blobs, and process adapters remain planned. | Not a supported production runtime target yet. Do not infer parity from Node compatibility or Bun launch scripts. |
+| Cloud Run | A deployment target exists, but `cloud-run` has no runtime composition. | Only HTTP transport is currently available; persistence, ephemeral state, lease, secrets, background tasks, scheduler, blobs, and process adapters remain planned. | Not a supported serverless runtime target yet. Deploying the existing Node application does not establish runtime-port support. |
+| Vercel | A deployment target/profile exists, but `vercel-node` has no runtime composition. | Only HTTP transport is currently available; persistence, ephemeral state, secrets, background tasks, and scheduler remain planned. | Not a supported runtime target yet. Do not infer capability from platform compatibility. |
+
+Cloudflare Workers is the composed serverless target: its production composition provides request-scoped HTTP transport, persistence, ephemeral state, and background tasks, with scheduler, lease, and secret ports still planned. Runtime composition must follow `composition → adapter → port`; a deployment label alone never grants a capability.

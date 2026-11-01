@@ -5,6 +5,7 @@
  * an OpenAI -> Claude translation.
  * Regression: https://github.com/decolua/9router/issues/3418
  */
+import "../translator/registerAll.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
