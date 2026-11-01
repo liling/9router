@@ -28,6 +28,18 @@ export function createTemporaryWranglerConfig(databaseId) {
   return path;
 }
 
-export function removeTemporaryWranglerConfig(path) {
-  if (path && path.startsWith(`${root}/.wrangler-builds-`)) unlinkSync(path);
+export function createTemporaryWranglerSecrets(validationProbeToken) {
+  if (!/^(?:[a-f0-9]{2}){32,}$/i.test(validationProbeToken || "")) {
+    throw new Error("Validation credential must be high entropy");
+  }
+  const path = resolve(root, `.wrangler-builds-secrets-${process.pid}-${randomUUID()}.json`);
+  writeFileSync(path, `${JSON.stringify({ VALIDATION_PROBE_TOKEN: validationProbeToken }, null, 2)}\n`, {
+    flag: "wx",
+    mode: 0o600,
+  });
+  return path;
+}
+
+export function removeTemporaryWranglerFile(path, prefix = ".wrangler-builds-") {
+  if (path && path.startsWith(`${root}/${prefix}`)) unlinkSync(path);
 }

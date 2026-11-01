@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { test } from "node:test";
 import { commandsFor, deployedWorkerUrl, run, validateBuildIdentity, validateDeploySettings } from "../scripts/workers-builds.mjs";
 import { cleanupValidationRows } from "../scripts/validation-cleanup.mjs";
-import { generateWranglerConfigText } from "../scripts/wrangler-config.mjs";
+import {
+  createTemporaryWranglerSecrets,
+  generateWranglerConfigText,
+} from "../scripts/wrangler-config.mjs";
 
 const validEnv = {
   WORKERS_CI: "1",
@@ -103,6 +106,16 @@ test("target mismatch blocks smoke after deploy output identity is parsed", () =
     return successfulCommand(command, args);
   }));
   assert.equal(count, 2);
+});
+
+test("temporary validation secret is protected and cleaned", () => {
+  const path = createTemporaryWranglerSecrets(validEnv.VALIDATION_PROBE_TOKEN);
+  assert.match(path, /\.wrangler-builds-secrets-/);
+  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), {
+    VALIDATION_PROBE_TOKEN: validEnv.VALIDATION_PROBE_TOKEN,
+  });
+  rmSync(path);
+  assert.throws(() => createTemporaryWranglerSecrets("weak"));
 });
 
 test("build sequence installs locked dependencies and does not mutate Cloudflare", () => {

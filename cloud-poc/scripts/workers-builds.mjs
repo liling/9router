@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createTemporaryWranglerConfig, removeTemporaryWranglerConfig } from "./wrangler-config.mjs";
+import {
+  createTemporaryWranglerConfig,
+  createTemporaryWranglerSecrets,
+  removeTemporaryWranglerFile,
+} from "./wrangler-config.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const expectedBranch = "serverless-architecture";
@@ -46,7 +50,7 @@ export function deployedWorkerUrl(output) {
   return unique[0];
 }
 
-export function commandsFor(mode, configPath) {
+export function commandsFor(mode, configPath, secretsPath) {
   if (!configPath) throw new Error("Generated Wrangler config is required");
   if (mode === "build") return [
     ["npm", ["ci"]],
@@ -61,7 +65,7 @@ export function commandsFor(mode, configPath) {
   ];
   if (mode === "deploy") return [
     ["npx", ["wrangler", "d1", "migrations", "apply", "9router", "--remote", "--config", configPath]],
-    ["npx", ["wrangler", "deploy", "--config", configPath]],
+    ["npx", ["wrangler", "deploy", "--config", configPath, "--secrets-file", secretsPath]],
     ["node", ["scripts/remote-validation.mjs"]],
   ];
   throw new Error("Expected build or deploy mode");
@@ -71,6 +75,7 @@ export function run(mode, env = process.env, execute = spawnSync) {
   validateBuildIdentity(env);
   if (mode === "deploy") validateDeploySettings(env);
   const configPath = createTemporaryWranglerConfig(env.D1_DATABASE_ID);
+  const secretsPath = mode === "deploy" ? createTemporaryWranglerSecrets(env.VALIDATION_PROBE_TOKEN) : undefined;
   const commandEnv = { ...env, WORKERS_BUILDS_WRANGLER_CONFIG: configPath };
   let deployedUrl;
   let migrationsResult = "not-observed";
@@ -99,7 +104,8 @@ export function run(mode, env = process.env, execute = spawnSync) {
       if (isSmoke) process.stdout.write(result.stdout || "");
     }
   } finally {
-    removeTemporaryWranglerConfig(configPath);
+    removeTemporaryWranglerFile(configPath);
+    removeTemporaryWranglerFile(secretsPath, ".wrangler-builds-secrets-");
   }
 }
 
