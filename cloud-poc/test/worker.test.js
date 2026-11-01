@@ -183,3 +183,43 @@ test("validation persistence probe uses the composed repository and cleans up it
   const missing = await worker.fetch(new Request(`https://worker.test/probe/validation/persistence/${encodeURIComponent(key)}`, { headers }), env, executionContext);
   assert.equal(missing.status, 404);
 });
+
+test("validation cleanup removes every synthetic D1 row by exact run suffix", async () => {
+  const suffix = `run-${crypto.randomUUID()}`;
+  const apiKeys = new Set([`validation:${suffix}`]);
+  const ephemeral = new Set([
+    `validation-a-${suffix}/${suffix}`,
+    `validation-b-${suffix}/${suffix}`,
+    ...Array.from({ length: 12 }, (_, index) => `validation:request-context:${suffix}-${index}/context`),
+  ]);
+  const backgrounds = new Set([`validation:${suffix}`]);
+  const db = {
+    prepare(sql) {
+      let values = [];
+      return {
+        bind(...nextValues) { values = nextValues; return this; },
+        async run() {
+          if (sql.startsWith("DELETE FROM api_keys")) return { meta: { changes: apiKeys.delete(values[0]) ? 1 : 0 } };
+          if (sql.startsWith("DELETE FROM ephemeral_store")) return { meta: { changes: ephemeral.delete(`${values[0]}/${values[1]}`) ? 1 : 0 } };
+          if (sql.startsWith("DELETE FROM validation_background")) return { meta: { changes: backgrounds.delete(values[0]) ? 1 : 0 } };
+          throw new Error("Unexpected cleanup SQL");
+        },
+        async first() { return null; },
+      };
+    },
+  };
+  const env = { VALIDATION_MODE: "true", VALIDATION_PROBE_TOKEN: "test-validation-token", DB: db };
+  const response = await worker.fetch(new Request("https://worker.test/probe/validation/cleanup", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-validation-token": env.VALIDATION_PROBE_TOKEN },
+    body: JSON.stringify({ suffix }),
+  }), env, { waitUntil() {} });
+  const { outcomes } = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(outcomes.api_keys, "deleted");
+  assert.equal(outcomes.ephemeral_probe, "deleted");
+  assert.equal(outcomes.ephemeral_isolation, "deleted");
+  assert.equal(outcomes.ephemeral_context, "cleaned:12");
+  assert.equal(outcomes.validation_background, "cleaned:1");
+  assert.equal(apiKeys.size + ephemeral.size + backgrounds.size, 0);
+});

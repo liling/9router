@@ -4,10 +4,16 @@ import { createServer, request as httpRequest } from "node:http";
 import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { after, test } from "node:test";
+import { createTemporaryWranglerConfig, removeTemporaryWranglerConfig } from "../scripts/wrangler-config.mjs";
 
 const cloudPocDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const wranglerEntry = resolve(cloudPocDir, "node_modules/wrangler/bin/wrangler.js");
+const inheritedConfig = process.env.WORKERS_BUILDS_WRANGLER_CONFIG;
+const wranglerConfig = inheritedConfig || createTemporaryWranglerConfig(
+  process.env.D1_DATABASE_ID || "00000000-0000-0000-0000-000000000001",
+);
+after(() => { if (!inheritedConfig) removeTemporaryWranglerConfig(wranglerConfig); });
 
 async function reservePort() {
   const server = createServer();
@@ -18,7 +24,7 @@ async function reservePort() {
 }
 
 test("deployable Worker does not expose API-key operations", async (context) => {
-  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "lane-b", "--local"], {
+  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "9router", "--local", "--config", wranglerConfig], {
     cwd: cloudPocDir,
     encoding: "utf8",
     env: { ...process.env, NO_COLOR: "1" },
@@ -72,6 +78,7 @@ test("deployable Worker does not expose API-key operations", async (context) => 
   serverProcess = spawn(process.execPath, [
     wranglerEntry,
     "dev",
+    "--config", wranglerConfig,
     "--ip", "127.0.0.1",
     "--port", String(workerPort),
     "--var", `UPSTREAM_ORIGIN:http://127.0.0.1:${upstreamPort}`,
