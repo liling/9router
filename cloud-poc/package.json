@@ -6,7 +6,9 @@
     "build": "wrangler deploy --dry-run",
     "dev": "wrangler dev",
     "mock": "node mock-upstream.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "workers:build": "node scripts/workers-builds.mjs build",
+    "workers:deploy": "node scripts/workers-builds.mjs deploy"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

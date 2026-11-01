@@ -18,7 +18,7 @@ async function reservePort() {
 }
 
 test("deployable Worker does not expose API-key operations", async (context) => {
-  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "lane-b", "--local"], {
+  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "9router", "--local"], {
     cwd: cloudPocDir,
     encoding: "utf8",
     env: { ...process.env, NO_COLOR: "1" },

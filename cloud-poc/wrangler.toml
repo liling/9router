@@ -1,14 +1,15 @@
-name = "9router-cloud-poc"
+name = "9router"
 main = "src/worker.js"
 compatibility_date = "2026-10-18"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [vars]
+VALIDATION_MODE = "true"
 UPSTREAM_ORIGIN = "http://127.0.0.1:8788"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "lane-b"
-database_id = "local-lane-b"
+database_name = "9router"
+database_id = "${D1_DATABASE_ID}"
 migrations_dir = "migrations"

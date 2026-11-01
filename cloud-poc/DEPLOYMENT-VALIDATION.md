@@ -1,61 +1,26 @@
-# Cloudflare deployment validation plan
+# Cloudflare Workers Builds
 
-## Scope and controls
+9router uses one Cloudflare Worker (`9router`) and one persistent D1 database. Configure Cloudflare Workers Builds for repository `liling/9router`, branch `serverless-architecture`, root directory `cloud-poc`, build command `npm run workers:build`, and deploy command `npm run workers:deploy`. Disable Preview deployments so previews cannot create a second Worker surface.
 
-`.github/workflows/cloudflare-deployment-validation.yml` is manual-only. It can
-run only from `serverless-architecture`, requires the explicit Human Acceptance
-input, and uses the `cloudflare-validation` GitHub Environment. Configure that
-Environment with required reviewers before enabling it. No workflow run or
-Cloudflare deployment is authorized before Human Acceptance.
+## Cloudflare setup
 
-Configure these Environment values through GitHub settings, never issue/chat:
+- Bind the existing persistent D1 database as `DB`, database name `9router`, and configure the matching `D1_DATABASE_ID` build variable. Keep that identifier in Cloudflare settings, not source control.
+- Apply the checked-in `migrations/` to that database through the guarded deploy command before deployment.
+- Set `VALIDATION_MODE=true` in Worker variables and configure `VALIDATION_PROBE_TOKEN` as a secret on the Worker and as an encrypted Workers Builds variable for post-deploy smoke checks. Never put its value in config, logs, evidence, GitHub, or a developer machine.
+- Configure `VALIDATION_URL` to the HTTPS `workers.dev` URL for `9router` and `EVIDENCE_PATH` to a writable build workspace location.
+- Workers Builds must expose `WORKERS_CI=1`, `WORKERS_CI_BRANCH=serverless-architecture`, `WORKERS_CI_COMMIT_SHA` (40 hex characters), and `WORKERS_CI_BUILD_UUID`.
+- Workers Builds identity supplies Wrangler authorization. Do not configure a Cloudflare API token or GitHub deploy credential.
 
-- Secret `CLOUDFLARE_API_TOKEN` with account-scoped D1 Read/Write and Workers
-  Scripts Read/Write permissions.
-- Variable `CLOUDFLARE_ACCOUNT_ID` for the dedicated non-production test account.
+## Build and deploy behavior
 
-The workflow fails before resource creation if either value is absent/invalid.
-It creates a unique `9router-mem475-validation-<run>-<attempt>` D1 database and
-Worker, enables only `workers.dev`, binds no custom domain/route, and uses the
-existing Worker composition. Probe routes require a random per-run credential
-held only in runner temporary storage and the validation Worker variables;
-production mode hides those routes. `UPSTREAM_ORIGIN` remains loopback and is never
-used as evidence of remote chat/executor reachability. Scheduler remains
-unavailable. No production DNS, account switching, or local-machine deploy is
-part of this plan.
+`workers:build` validates the build identity before running locked `npm ci`, tests, Wrangler dry-run, and syntax checks. It does not invoke remote Wrangler mutations. `workers:deploy` validates the same identity, applies the checked-in D1 migrations remotely, deploys `9router`, and runs the smoke script against that same Worker. Validation rows use synthetic `validation:` keys and the persistence probe deletes its row after reading it. No additional Worker or D1 is created or deleted.
 
-Preflight refuses any existing exact generated name. Cleanup addresses only
-the generated Worker name and the D1 UUID returned by that run; cleanup runs
-with `always()` after resource provisioning begins. If cleanup fails, the job
-fails and sanitized evidence records that result for human follow-up. The
-workflow does not emit Wrangler migration/deploy logs, raw API responses,
-request payloads, or credential values. Only the sanitized evidence JSON is
-uploaded.
+The smoke records the commit SHA, build UUID, branch, sanitized target, timestamps, profile, ingress/port truth, outcome names, Scheduler state, and explicitly marks executor/chat `not tested` because the upstream is loopback. Logs and evidence must contain no secret values. Scheduler remains unavailable; waitUntil is best-effort and non-durable. Local Node is the CI control; Cloud Run, Vercel, and Bun remain readiness-only.
 
-## Automated plan
+## Validation plan
 
-1. On the exact workflow commit, install `cloud-poc/package-lock.json`, run the
-   existing local Workerd/control tests, and run the Wrangler dry-run build.
-2. Verify the accepted base is an ancestor of the dispatched commit.
-3. Preflight unique Worker/D1 names, create isolated D1, apply the checked-in
-   migrations, and deploy the Worker with `VALIDATION_MODE=true`.
-4. Exercise persistence across separate HTTP requests; prove D1 ephemeral
-   namespace isolation; verify concurrent request-context responses; wait for
-   a best-effort `waitUntil` D1 write while reporting it as non-durable; and
-   verify the missing-D1 composition path fails closed.
-5. Confirm health reports the Worker profile; verify Scheduler remains
-   unavailable. The application ingress is HTTPS `workers.dev` and has no
-   fixed application port. Do not test remote chat/executor traffic against
-   the configured loopback upstream.
-6. Record SHA, run URL/ID, sanitized target, outcome names, timestamps, profile,
-   ingress/port truth, scheduler state, and cleanup result. Do not collect
-   Cloudflare provider logs; the probe handlers do not log request data or
-   credential material.
-7. Always attempt exact-target cleanup after creation/deployment, including
-   failed smoke checks. Confirm cleanup outcome from the sanitized artifact.
-
-## Controls outside this workflow
-
-Local Node production-composition tests remain the CI control. Docker is only a
-packaged Local Node control if separately run. Cloud Run, Vercel Node, and Bun
-remain readiness-only; this workflow makes no claims about them.
+1. Run `npm ci`, `npm test`, and `npm run build` from `cloud-poc`.
+2. Test wrong/missing Workers Builds identity values and confirm rejection occurs before command execution.
+3. Assert deploy ordering is remote migrations, Worker deploy, then remote smoke.
+4. Review build evidence for commit/build identity, target, outcome truth, profile, timestamps, and secret-free output.
+5. Human acceptance and Cloudflare Environment/Worker configuration are required before any remote deployment. No remote deployment is triggered by local validation.

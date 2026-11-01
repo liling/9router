@@ -1,14 +1,12 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const baseUrl = process.env.VALIDATION_URL;
-const runId = process.env.GITHUB_RUN_ID;
-const sha = process.env.GITHUB_SHA;
+const runId = process.env.WORKERS_CI_BUILD_UUID || "not-provided";
+const sha = process.env.WORKERS_CI_COMMIT_SHA;
 const evidencePath = process.env.EVIDENCE_PATH;
-const probeTokenFile = process.env.VALIDATION_PROBE_TOKEN_FILE;
-if (!baseUrl || !runId || !sha || !evidencePath || !probeTokenFile) throw new Error("Validation evidence configuration is incomplete");
-const probeToken = (await readFile(probeTokenFile, "utf8")).trim();
-if (!/^[a-f0-9]{64}$/.test(probeToken)) throw new Error("Invalid temporary validation probe token");
+const probeToken = process.env.VALIDATION_PROBE_TOKEN;
+if (!baseUrl || !sha || !/^[a-f0-9]{40}$/i.test(sha) || !evidencePath || !probeToken) throw new Error("Validation evidence configuration is incomplete");
 const origin = new URL(baseUrl);
 if (origin.protocol !== "https:" || !origin.hostname.endsWith(".workers.dev")) {
   throw new Error("Refusing a target outside the HTTPS workers.dev non-production namespace");
@@ -114,7 +112,8 @@ await check("scheduler-unavailable", async () => {
 const evidence = {
   sha,
   runId,
-  runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}`,
+  buildId: runId,
+  branch: process.env.WORKERS_CI_BRANCH,
   target: origin.hostname,
   startedAt,
   completedAt: new Date().toISOString(),
@@ -125,6 +124,8 @@ const evidence = {
   secretFreeLogs: "validation script emits outcomes only; no credentials or provider logs collected",
   outcomes: results,
 };
+evidence.outcomes.migrations = process.env.MIGRATIONS_RESULT || "not-observed";
+evidence.outcomes.deploy = process.env.DEPLOY_RESULT || "not-observed";
 await mkdir(dirname(evidencePath), { recursive: true });
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
 process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
