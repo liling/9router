@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer, request as httpRequest } from "node:http";
 import { once } from "node:events";
-import { dirname, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, test } from "node:test";
 import { createTemporaryWranglerConfig, removeTemporaryWranglerFile } from "../scripts/wrangler-config.mjs";
@@ -73,6 +75,7 @@ test("deployable Worker does not expose API-key operations", async (context) => 
   await new Promise((resolveListen) => upstream.listen(0, "127.0.0.1", resolveListen));
 
   const workerPort = await reservePort();
+  const inspectorPort = await reservePort();
   const upstreamPort = upstream.address().port;
   const workerOrigin = `http://127.0.0.1:${workerPort}`;
   serverProcess = spawn(process.execPath, [
@@ -81,6 +84,7 @@ test("deployable Worker does not expose API-key operations", async (context) => 
     "--config", wranglerConfig,
     "--ip", "127.0.0.1",
     "--port", String(workerPort),
+    "--inspector-port", String(inspectorPort),
     "--var", `UPSTREAM_ORIGIN:http://127.0.0.1:${upstreamPort}`,
   ], { cwd: cloudPocDir, env: { ...process.env, NO_COLOR: "1" }, stdio: ["ignore", "pipe", "pipe"] });
   serverProcess.stdout.on("data", (chunk) => { logs = `${logs}${chunk}`.slice(-12000); });
@@ -225,4 +229,66 @@ test("deployable Worker does not expose API-key operations", async (context) => 
   const localOnlyResponse = await fetch(`${workerOrigin}/probe/local-only`);
   assert.equal(localOnlyResponse.status, 403);
   assert.deepEqual(await localOnlyResponse.json(), { error: "RuntimeCapabilityError", code: "RUNTIME_CAPABILITY_UNAVAILABLE" });
+});
+
+test("concurrent e2e instances reserve distinct worker and inspector ports", async () => {
+  const d1TestConfig = resolve(cloudPocDir, "test/wrangler.d1-test.toml");
+  const migrations = spawnSync(process.execPath, [wranglerEntry, "d1", "migrations", "apply", "lane-b-d1-test", "--local", "--config", d1TestConfig], {
+    cwd: cloudPocDir,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" },
+  });
+  assert.equal(migrations.status, 0, migrations.stderr || migrations.stdout);
+
+  const workerPorts = [await reservePort(), await reservePort()];
+  const inspectorPorts = [await reservePort(), await reservePort()];
+  const persistDirs = [mkdtempSync(join(tmpdir(), "9router-e2e-a-")), mkdtempSync(join(tmpdir(), "9router-e2e-b-"))];
+  assert.equal(new Set([...workerPorts, ...inspectorPorts]).size, 4, "reserved ports must all be distinct");
+
+  const instances = workerPorts.map((workerPort, index) => {
+    const child = spawn(process.execPath, [
+      wranglerEntry,
+      "dev",
+      "--config", d1TestConfig,
+      "--ip", "127.0.0.1",
+      "--port", String(workerPort),
+      "--inspector-port", String(inspectorPorts[index]),
+      "--persist-to", persistDirs[index],
+    ], { cwd: cloudPocDir, env: { ...process.env, NO_COLOR: "1" }, stdio: ["ignore", "pipe", "pipe"] });
+    const instance = { child, origin: `http://127.0.0.1:${workerPort}`, logs: "" };
+    child.stdout.on("data", (chunk) => { instance.logs = `${instance.logs}${chunk}`.slice(-8000); });
+    child.stderr.on("data", (chunk) => { instance.logs = `${instance.logs}${chunk}`.slice(-8000); });
+    return instance;
+  });
+
+  try {
+    const deadline = Date.now() + 45000;
+    for (const instance of instances) {
+      let ready = false;
+      while (Date.now() < deadline && !ready) {
+        if (instance.child.exitCode !== null) throw new Error(`Wrangler exited before readiness:\n${instance.logs}`);
+        try {
+          ready = (await fetch(`${instance.origin}/health`)).ok;
+        } catch {}
+        if (!ready) await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+      }
+      assert.equal(ready, true, `Concurrent Wrangler instance did not become ready:\n${instance.logs}`);
+    }
+    for (const instance of instances) {
+      assert.doesNotMatch(instance.logs, /Address already in use/i, "inspector or worker port collision regressed");
+    }
+  } finally {
+    for (const instance of instances) {
+      if (instance.child.exitCode === null && instance.child.signalCode === null) {
+        const exited = once(instance.child, "exit");
+        instance.child.kill("SIGTERM");
+        await Promise.race([exited, new Promise((resolveDelay) => setTimeout(resolveDelay, 5000))]);
+        if (instance.child.exitCode === null && instance.child.signalCode === null) {
+          instance.child.kill("SIGKILL");
+          await once(instance.child, "exit");
+        }
+      }
+    }
+    for (const persistDir of persistDirs) rmSync(persistDir, { recursive: true, force: true });
+  }
 });
