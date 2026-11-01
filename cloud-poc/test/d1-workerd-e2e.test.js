@@ -25,14 +25,23 @@ function dockerlessWrangler(args) {
   assert.equal(result.status, 0, result.stderr || result.stdout);
 }
 
+async function reservePort() {
+  const server = createServer();
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  const { port } = server.address();
+  await new Promise((resolveClose) => server.close(resolveClose));
+  return port;
+}
+
 before(async () => {
   dockerlessWrangler(["d1", "migrations", "apply", "lane-b-d1-test", "--local", "--config", testConfig]);
-  const portServer = createServer();
-  await new Promise((resolveListen) => portServer.listen(0, "127.0.0.1", resolveListen));
-  const { port } = portServer.address();
-  await new Promise((resolveClose) => portServer.close(resolveClose));
+  const port = await reservePort();
+  const inspectorPort = await reservePort();
 
-  child = spawn(process.execPath, [wranglerEntry, "dev", "--config", testConfig, "--ip", "127.0.0.1", "--port", String(port)], {
+  child = spawn(process.execPath, [
+    wranglerEntry, "dev", "--config", testConfig, "--ip", "127.0.0.1",
+    "--port", String(port), "--inspector-port", String(inspectorPort),
+  ], {
     cwd: cloudPocDir, env: { ...process.env, NO_COLOR: "1" }, stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (chunk) => { logs = `${logs}${chunk}`.slice(-8000); });
