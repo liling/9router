@@ -7,7 +7,7 @@ const runId = process.env.WORKERS_CI_BUILD_UUID;
 const sha = process.env.WORKERS_CI_COMMIT_SHA;
 const evidencePath = process.env.EVIDENCE_PATH;
 const probeToken = process.env.VALIDATION_PROBE_TOKEN;
-const accountId = process.env.WORKERS_CI_ACCOUNT_ID;
+const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 const deployedUrl = process.env.WORKERS_CI_DEPLOYED_URL;
 if (!baseUrl || !/^[a-f0-9]{40}$/i.test(sha || "") ||
     !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(runId || "") ||

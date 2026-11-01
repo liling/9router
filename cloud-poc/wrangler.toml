@@ -3,7 +3,6 @@ main = "src/worker.js"
 compatibility_date = "2026-10-18"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
-account_id = "${WORKERS_CI_ACCOUNT_ID}"
 
 [vars]
 VALIDATION_MODE = "true"
@@ -12,5 +11,4 @@ UPSTREAM_ORIGIN = "http://127.0.0.1:8788"
 [[d1_databases]]
 binding = "DB"
 database_name = "9router"
-database_id = "${D1_DATABASE_ID}"
 migrations_dir = "migrations"

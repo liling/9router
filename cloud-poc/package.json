@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wrangler deploy --dry-run",
-    "dev": "wrangler dev",
+    "build": "node scripts/wrangler-build.mjs",
+    "dev": "node scripts/wrangler-dev.mjs",
     "mock": "node mock-upstream.mjs",
     "test": "node --test",
     "workers:build": "node scripts/workers-builds.mjs build",

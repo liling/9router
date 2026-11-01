@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createTemporaryWranglerConfig, removeTemporaryWranglerConfig } from "./wrangler-config.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const expectedBranch = "serverless-architecture";
@@ -25,7 +26,7 @@ export function validateBuildIdentity(env) {
   if (env.WORKERS_CI !== "1") throw new Error("Workers Builds identity missing");
   if (env.WORKERS_CI_BRANCH !== expectedBranch) throw new Error("Unexpected Workers Builds branch");
   if (!validSha.test(env.WORKERS_CI_COMMIT_SHA || "")) throw new Error("Invalid Workers Builds commit SHA");
-  if (!validAccountId.test(env.WORKERS_CI_ACCOUNT_ID || "")) throw new Error("Invalid Workers Builds account identity");
+  if (!validAccountId.test(env.CLOUDFLARE_ACCOUNT_ID || "")) throw new Error("Invalid native Cloudflare account identity");
   if (!validD1Id.test(env.D1_DATABASE_ID || "")) throw new Error("Invalid persistent D1 identity");
 }
 
@@ -45,7 +46,8 @@ export function deployedWorkerUrl(output) {
   return unique[0];
 }
 
-export function commandsFor(mode) {
+export function commandsFor(mode, configPath) {
+  if (!configPath) throw new Error("Generated Wrangler config is required");
   if (mode === "build") return [
     ["npm", ["ci"]],
     ["npm", ["test"]],
@@ -53,10 +55,13 @@ export function commandsFor(mode) {
     ["node", ["--check", "scripts/workers-builds.mjs"]],
     ["node", ["--check", "scripts/remote-validation.mjs"]],
     ["node", ["--check", "scripts/validation-cleanup.mjs"]],
+    ["node", ["--check", "scripts/wrangler-config.mjs"]],
+    ["node", ["--check", "scripts/wrangler-build.mjs"]],
+    ["node", ["--check", "scripts/wrangler-dev.mjs"]],
   ];
   if (mode === "deploy") return [
-    ["npx", ["wrangler", "d1", "migrations", "apply", "9router", "--remote"]],
-    ["npx", ["wrangler", "deploy"]],
+    ["npx", ["wrangler", "d1", "migrations", "apply", "9router", "--remote", "--config", configPath]],
+    ["npx", ["wrangler", "deploy", "--config", configPath]],
     ["node", ["scripts/remote-validation.mjs"]],
   ];
   throw new Error("Expected build or deploy mode");
@@ -65,30 +70,36 @@ export function commandsFor(mode) {
 export function run(mode, env = process.env, execute = spawnSync) {
   validateBuildIdentity(env);
   if (mode === "deploy") validateDeploySettings(env);
+  const configPath = createTemporaryWranglerConfig(env.D1_DATABASE_ID);
+  const commandEnv = { ...env, WORKERS_BUILDS_WRANGLER_CONFIG: configPath };
   let deployedUrl;
   let migrationsResult = "not-observed";
   let deployResult = "not-observed";
-  for (const [command, args] of commandsFor(mode)) {
-    const isMigration = mode === "deploy" && args[0] === "wrangler" && args[1] === "d1";
-    const isDeploy = mode === "deploy" && args[0] === "wrangler" && args[1] === "deploy";
-    const isSmoke = mode === "deploy" && args[0] === "scripts/remote-validation.mjs";
-    const commandEnv = isSmoke
-      ? { ...env, WORKERS_CI_DEPLOYED_URL: deployedUrl, MIGRATIONS_RESULT: migrationsResult, DEPLOY_RESULT: deployResult }
-      : env;
-    const result = execute(command, args, { cwd: root, env: commandEnv, encoding: "utf8" });
-    if (result.error) throw result.error;
-    if (result.status !== 0) {
-      throw new Error(`Workers Builds command failed: ${command} ${args[0]}; output withheld`);
-    }
-    if (isMigration) migrationsResult = "PASS";
-    if (isDeploy) {
-      deployedUrl = deployedWorkerUrl(`${result.stdout || ""}\n${result.stderr || ""}`);
-      if (deployedUrl !== new URL(env.VALIDATION_URL).origin) {
-        throw new Error("Configured validation URL does not match this deployment's 9router Worker");
+  try {
+    for (const [command, args] of commandsFor(mode, configPath)) {
+      const isMigration = mode === "deploy" && args[0] === "wrangler" && args[1] === "d1";
+      const isDeploy = mode === "deploy" && args[0] === "wrangler" && args[1] === "deploy";
+      const isSmoke = mode === "deploy" && args[0] === "scripts/remote-validation.mjs";
+      const currentEnv = isSmoke
+        ? { ...commandEnv, WORKERS_CI_DEPLOYED_URL: deployedUrl, MIGRATIONS_RESULT: migrationsResult, DEPLOY_RESULT: deployResult }
+        : commandEnv;
+      const result = execute(command, args, { cwd: root, env: currentEnv, encoding: "utf8" });
+      if (result.error) throw result.error;
+      if (result.status !== 0) {
+        throw new Error(`Workers Builds command failed: ${command} ${args[0]}; output withheld`);
       }
-      deployResult = "PASS";
+      if (isMigration) migrationsResult = "PASS";
+      if (isDeploy) {
+        deployedUrl = deployedWorkerUrl(`${result.stdout || ""}\n${result.stderr || ""}`);
+        if (deployedUrl !== new URL(env.VALIDATION_URL).origin) {
+          throw new Error("Configured validation URL does not match this deployment's 9router Worker");
+        }
+        deployResult = "PASS";
+      }
+      if (isSmoke) process.stdout.write(result.stdout || "");
     }
-    if (isSmoke) process.stdout.write(result.stdout || "");
+  } finally {
+    removeTemporaryWranglerConfig(configPath);
   }
 }
 
