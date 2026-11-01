@@ -5,7 +5,7 @@ import { once } from "node:events";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, test } from "node:test";
-import { createTemporaryWranglerConfig, removeTemporaryWranglerConfig } from "../scripts/wrangler-config.mjs";
+import { createTemporaryWranglerConfig, removeTemporaryWranglerFile } from "../scripts/wrangler-config.mjs";
 
 const cloudPocDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const wranglerEntry = resolve(cloudPocDir, "node_modules/wrangler/bin/wrangler.js");
@@ -13,7 +13,7 @@ const inheritedConfig = process.env.WORKERS_BUILDS_WRANGLER_CONFIG;
 const wranglerConfig = inheritedConfig || createTemporaryWranglerConfig(
   process.env.D1_DATABASE_ID || "00000000-0000-0000-0000-000000000001",
 );
-after(() => { if (!inheritedConfig) removeTemporaryWranglerConfig(wranglerConfig); });
+after(() => { if (!inheritedConfig) removeTemporaryWranglerFile(wranglerConfig); });
 
 async function reservePort() {
   const server = createServer();

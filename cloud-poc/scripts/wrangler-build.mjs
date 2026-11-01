@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { createTemporaryWranglerConfig, removeTemporaryWranglerConfig } from "./wrangler-config.mjs";
+import { createTemporaryWranglerConfig, removeTemporaryWranglerFile } from "./wrangler-config.mjs";
 
 let configPath = process.env.WORKERS_BUILDS_WRANGLER_CONFIG;
 let ownedConfig = false;
@@ -19,5 +19,5 @@ try {
   process.stderr.write(`${error.message}\n`);
   process.exitCode = 1;
 } finally {
-  if (ownedConfig) removeTemporaryWranglerConfig(configPath);
+  if (ownedConfig) removeTemporaryWranglerFile(configPath);
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,5 +41,5 @@ export function createTemporaryWranglerSecrets(validationProbeToken) {
 }
 
 export function removeTemporaryWranglerFile(path, prefix = ".wrangler-builds-") {
-  if (path && path.startsWith(`${root}/${prefix}`)) unlinkSync(path);
+  if (path && path.startsWith(`${root}/${prefix}`) && existsSync(path)) unlinkSync(path);
 }

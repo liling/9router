@@ -81,7 +81,7 @@ export function run(mode, env = process.env, execute = spawnSync) {
   let migrationsResult = "not-observed";
   let deployResult = "not-observed";
   try {
-    for (const [command, args] of commandsFor(mode, configPath)) {
+    for (const [command, args] of commandsFor(mode, configPath, secretsPath)) {
       const isMigration = mode === "deploy" && args[0] === "wrangler" && args[1] === "d1";
       const isDeploy = mode === "deploy" && args[0] === "wrangler" && args[1] === "deploy";
       const isSmoke = mode === "deploy" && args[0] === "scripts/remote-validation.mjs";
