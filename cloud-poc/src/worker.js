@@ -177,6 +177,38 @@ export default {
       return Response.json({ record, deleted });
     }
 
+    if (incomingUrl.pathname === "/probe/validation/cleanup" && request.method === "POST") {
+      const { suffix } = await request.json();
+      if (typeof suffix !== "string" || !/^[a-zA-Z0-9-]+$/.test(suffix)) {
+        return Response.json({ error: "invalid_probe_input" }, { status: 400 });
+      }
+      const outcomes = {};
+      const attempt = async (name, action) => {
+        try { outcomes[name] = await action(); }
+        catch { outcomes[name] = "failed"; }
+      };
+      const persistence = requestRuntime.assertPort("persistence");
+      const ephemeral = requestRuntime.assertPort("ephemeral");
+      await attempt("api_keys", async () => (await persistence.delete(`validation:${suffix}`)) ? "deleted" : "absent");
+      await attempt("ephemeral_probe", async () => (await ephemeral.delete(`validation-a-${suffix}`, suffix)) ? "deleted" : "absent");
+      await attempt("ephemeral_isolation", async () => (await ephemeral.delete(`validation-b-${suffix}`, suffix)) ? "deleted" : "absent");
+      let contextsDeleted = 0;
+      let contextsFailed = false;
+      for (let index = 0; index < 12; index += 1) {
+        try {
+          if (await ephemeral.delete(`validation:request-context:${suffix}-${index}`, "context")) contextsDeleted += 1;
+        } catch { contextsFailed = true; }
+      }
+      outcomes.ephemeral_context = contextsFailed ? "failed" : `cleaned:${contextsDeleted}`;
+      await attempt("validation_background", async () => {
+        const result = await env.DB.prepare("DELETE FROM validation_background WHERE id = ?")
+          .bind(`validation:${suffix}`).run();
+        return `cleaned:${result.meta?.changes || 0}`;
+      });
+      const failed = Object.values(outcomes).some((value) => value === "failed");
+      return Response.json({ outcomes }, { status: failed ? 500 : 200 });
+    }
+
     if (incomingUrl.pathname === "/probe/validation/ephemeral" && request.method === "POST") {
       const { namespace, key, value } = await request.json();
       if (![namespace, key, value].every((item) => typeof item === "string")) {

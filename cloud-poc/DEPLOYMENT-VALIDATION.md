@@ -4,23 +4,23 @@
 
 ## Cloudflare setup
 
-- Bind the existing persistent D1 database as `DB`, database name `9router`, and configure the matching `D1_DATABASE_ID` build variable. Keep that identifier in Cloudflare settings, not source control.
-- Apply the checked-in `migrations/` to that database through the guarded deploy command before deployment.
-- Set `VALIDATION_MODE=true` in Worker variables and configure `VALIDATION_PROBE_TOKEN` as a secret on the Worker and as an encrypted Workers Builds variable for post-deploy smoke checks. Never put its value in config, logs, evidence, GitHub, or a developer machine.
-- Configure `VALIDATION_URL` to the HTTPS `workers.dev` URL for `9router` and `EVIDENCE_PATH` to a writable build workspace location.
-- Workers Builds must expose `WORKERS_CI=1`, `WORKERS_CI_BRANCH=serverless-architecture`, `WORKERS_CI_COMMIT_SHA` (40 hex characters), and `WORKERS_CI_BUILD_UUID`.
+- Configure `WORKERS_CI_ACCOUNT_ID` as the 32-hex account ID and `D1_DATABASE_ID` as the existing persistent D1 UUID in encrypted Workers Builds variables. `wrangler.toml` pins deployment to that account and binds the D1 as `DB`; do not create a second database.
+- Set `VALIDATION_MODE=true` in Worker variables. Create a cryptographically random token with at least 256 bits of entropy using an approved secret manager directly within the Cloudflare administration flow. Store it only as Worker secret `VALIDATION_PROBE_TOKEN` and as an encrypted Workers Builds variable with the same name; never put its value in source, logs, evidence, GitHub, or a developer machine.
+- Configure `VALIDATION_URL` to the exact HTTPS `workers.dev` URL emitted by deployment for `9router` in the configured account. The deploy wrapper extracts the URL from that invocation and refuses smoke if the configured URL differs. It accepts no arbitrary `workers.dev` target.
+- Configure `EVIDENCE_PATH` to a writable build workspace location. Workers Builds must expose `WORKERS_CI=1`, `WORKERS_CI_BRANCH=serverless-architecture`, `WORKERS_CI_COMMIT_SHA` (40 hex characters), and a valid UUID in `WORKERS_CI_BUILD_UUID`.
+- Rotate the probe token by generating a new high-entropy value in the approved Cloudflare-side secret flow, replacing both the Worker secret and encrypted Builds variable together, and then retiring the previous value. Never stage or transfer the value through a local file or chat.
 - Workers Builds identity supplies Wrangler authorization. Do not configure a Cloudflare API token or GitHub deploy credential.
 
 ## Build and deploy behavior
 
-`workers:build` validates the build identity before running locked `npm ci`, tests, Wrangler dry-run, and syntax checks. It does not invoke remote Wrangler mutations. `workers:deploy` validates the same identity, applies the checked-in D1 migrations remotely, deploys `9router`, and runs the smoke script against that same Worker. Validation rows use synthetic `validation:` keys and the persistence probe deletes its row after reading it. No additional Worker or D1 is created or deleted.
+`workers:build` validates identity, account, and persistent D1 settings before running locked `npm ci`, tests, Wrangler dry-run, and syntax checks. It invokes no remote Wrangler mutations. `workers:deploy` additionally gates on build UUID, URL, and credential strength; applies checked-in migrations remotely, deploys `9router`, verifies the emitted URL matches the configured target, then runs smoke against that exact deployed Worker.
 
-The smoke records the commit SHA, build UUID, branch, sanitized target, timestamps, profile, ingress/port truth, outcome names, Scheduler state, and explicitly marks executor/chat `not tested` because the upstream is loopback. Logs and evidence must contain no secret values. Scheduler remains unavailable; waitUntil is best-effort and non-durable. Local Node is the CI control; Cloud Run, Vercel, and Bun remain readiness-only.
+The smoke uses a unique run suffix and attempts exact cleanup after all probes, including after partial failures. It reports per-table cleanup outcomes for `api_keys`, ephemeral probe/isolation/context rows, and `validation_background`. The evidence includes SHA, build UUID, branch, Worker/target, migration/deploy/smoke results, timestamps, profile and ingress/port truth. Executor/chat remains `not tested` because upstream is loopback; Scheduler remains unavailable; waitUntil remains best-effort and non-durable. No additional Worker or D1 is created or deleted. Local Node is the CI control; Cloud Run, Vercel, and Bun remain readiness-only.
 
 ## Validation plan
 
 1. Run `npm ci`, `npm test`, and `npm run build` from `cloud-poc`.
-2. Test wrong/missing Workers Builds identity values and confirm rejection occurs before command execution.
-3. Assert deploy ordering is remote migrations, Worker deploy, then remote smoke.
-4. Review build evidence for commit/build identity, target, outcome truth, profile, timestamps, and secret-free output.
-5. Human acceptance and Cloudflare Environment/Worker configuration are required before any remote deployment. No remote deployment is triggered by local validation.
+2. Test wrong/missing Workers Builds identity, account/D1 configuration, UUID, target URL, and low-entropy credential values; confirm rejection occurs before commands.
+3. Assert deploy ordering is remote migrations, deploy, then smoke, and that smoke receives only the URL parsed from that deploy invocation.
+4. Exercise exact synthetic-row cleanup, including partial-failure retry and per-table evidence; review evidence for truthful target/profile/port and secret-free output.
+5. Human acceptance and Cloudflare dashboard configuration are required before any remote deployment. No remote deployment is triggered by local validation.

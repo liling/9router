@@ -3,6 +3,7 @@ main = "src/worker.js"
 compatibility_date = "2026-10-18"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
+account_id = "${WORKERS_CI_ACCOUNT_ID}"
 
 [vars]
 VALIDATION_MODE = "true"

@@ -1,15 +1,24 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { cleanupValidationRows } from "./validation-cleanup.mjs";
 
 const baseUrl = process.env.VALIDATION_URL;
-const runId = process.env.WORKERS_CI_BUILD_UUID || "not-provided";
+const runId = process.env.WORKERS_CI_BUILD_UUID;
 const sha = process.env.WORKERS_CI_COMMIT_SHA;
 const evidencePath = process.env.EVIDENCE_PATH;
 const probeToken = process.env.VALIDATION_PROBE_TOKEN;
-if (!baseUrl || !sha || !/^[a-f0-9]{40}$/i.test(sha) || !evidencePath || !probeToken) throw new Error("Validation evidence configuration is incomplete");
+const accountId = process.env.WORKERS_CI_ACCOUNT_ID;
+const deployedUrl = process.env.WORKERS_CI_DEPLOYED_URL;
+if (!baseUrl || !/^[a-f0-9]{40}$/i.test(sha || "") ||
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(runId || "") ||
+    !/^[a-f0-9]{32}$/i.test(accountId || "") || !evidencePath || !/^(?:[a-f0-9]{2}){32,}$/i.test(probeToken || "") || !deployedUrl) {
+  throw new Error("Validation evidence configuration is incomplete");
+}
 const origin = new URL(baseUrl);
-if (origin.protocol !== "https:" || !origin.hostname.endsWith(".workers.dev")) {
-  throw new Error("Refusing a target outside the HTTPS workers.dev non-production namespace");
+const deployedOrigin = new URL(deployedUrl);
+if (origin.protocol !== "https:" || !/^9router\.[a-z0-9-]+\.workers\.dev$/i.test(origin.hostname) ||
+    origin.origin !== deployedOrigin.origin || deployedOrigin.protocol !== "https:") {
+  throw new Error("Refusing a target that does not match the deployed 9router Worker identity");
 }
 
 const startedAt = new Date().toISOString();
@@ -48,6 +57,13 @@ await check("worker-health", async () => {
 const suffix = `${runId}-${crypto.randomUUID()}`;
 const key = `validation:${suffix}`;
 const value = `non-secret:${suffix}`;
+const cleanupByTable = {
+  api_keys: "not-observed",
+  ephemeral_probe: "not-observed",
+  ephemeral_isolation: "not-observed",
+  ephemeral_context: "not-observed",
+  validation_background: "not-observed",
+};
 await check("d1-persistence-across-requests", async () => {
   const write = await request("/probe/validation/persistence", { method: "POST", body: { key } });
   const read = await request(`/probe/validation/persistence/${encodeURIComponent(key)}`);
@@ -109,11 +125,19 @@ await check("scheduler-unavailable", async () => {
   if (result.status !== 404) throw new Error("Scheduler unexpectedly appeared available");
 });
 
+await check("synthetic-d1-cleanup", async () => {
+  const cleanup = await cleanupValidationRows(request, suffix);
+  Object.assign(cleanupByTable, cleanup.outcomes);
+  results["synthetic-d1-cleanup-by-table"] = cleanupByTable;
+  if (!cleanup.ok) throw new Error("Synthetic D1 cleanup was incomplete");
+});
+
 const evidence = {
   sha,
   runId,
   buildId: runId,
   branch: process.env.WORKERS_CI_BRANCH,
+  worker: "9router",
   target: origin.hostname,
   startedAt,
   completedAt: new Date().toISOString(),
@@ -129,4 +153,4 @@ evidence.outcomes.deploy = process.env.DEPLOY_RESULT || "not-observed";
 await mkdir(dirname(evidencePath), { recursive: true });
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
 process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
-if (Object.values(results).includes("FAIL")) process.exitCode = 1;
+if (Object.values(results).some((result) => result === "FAIL")) process.exitCode = 1;
