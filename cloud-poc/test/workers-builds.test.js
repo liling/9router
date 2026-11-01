@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { test } from "node:test";
 import { commandsFor, deployedWorkerUrl, run, validateBuildIdentity, validateDeploySettings } from "../scripts/workers-builds.mjs";
 import { cleanupValidationRows } from "../scripts/validation-cleanup.mjs";
-import { generateWranglerConfigText } from "../scripts/wrangler-config.mjs";
+import {
+  createTemporaryWranglerSecrets,
+  generateWranglerConfigText,
+} from "../scripts/wrangler-config.mjs";
 
 const validEnv = {
   WORKERS_CI: "1",
@@ -76,11 +79,24 @@ test("deploy ordering passes only the exact deployment URL and identity to smoke
   const calls = [];
   run("deploy", validEnv, (command, args, options) => {
     calls.push({ command, args, env: options.env });
-    if (command === "npx") {
+    if (args[1] === "d1") {
       const configPath = args.at(-1);
       assert.equal(args.at(-2), "--config");
       assert.match(readFileSync(configPath, "utf8"), new RegExp(`database_id = "${validEnv.D1_DATABASE_ID}"`));
       assert.doesNotMatch(readFileSync(configPath, "utf8"), /\$\{/);
+    }
+    if (args[1] === "deploy") {
+      const secretsPath = args.at(-1);
+      const configPath = args.at(-3);
+      assert.equal(args.at(-4), "--config");
+      assert.equal(args.at(-2), "--secrets-file");
+      assert.match(readFileSync(configPath, "utf8"), new RegExp(`database_id = "${validEnv.D1_DATABASE_ID}"`));
+      assert.doesNotMatch(readFileSync(configPath, "utf8"), /\$\{/);
+      assert.equal(existsSync(secretsPath), true);
+      assert.equal(statSync(secretsPath).mode & 0o777, 0o600);
+      assert.deepEqual(JSON.parse(readFileSync(secretsPath, "utf8")), {
+        VALIDATION_PROBE_TOKEN: validEnv.VALIDATION_PROBE_TOKEN,
+      });
     }
     return successfulCommand(command, args);
   });
@@ -92,8 +108,28 @@ test("deploy ordering passes only the exact deployment URL and identity to smoke
   assert.equal(calls[2].env.MIGRATIONS_RESULT, "PASS");
   assert.equal(calls[2].env.DEPLOY_RESULT, "PASS");
   assert.equal(calls[2].env.WORKERS_CI_BUILD_UUID, validEnv.WORKERS_CI_BUILD_UUID);
-  assert.equal(calls[0].args.at(-1), calls[1].args.at(-1));
+  assert.equal(calls[0].args.at(-1), calls[1].args.at(-3));
   assert.equal(calls[0].env.CLOUDFLARE_ACCOUNT_ID, validEnv.CLOUDFLARE_ACCOUNT_ID);
+  assert.equal(existsSync(calls[1].args.at(-3)), false);
+  assert.equal(existsSync(calls[1].args.at(-1)), false);
+});
+
+test("deploy command failure cleans both temporary files without leaking output", () => {
+  const paths = [];
+  let error;
+  try {
+    run("deploy", validEnv, (command, args) => {
+      if (args[1] === "d1") return { status: 0, stdout: "sanitized test evidence", stderr: "" };
+      if (args[1] === "deploy") paths.push(args.at(-3), args.at(-1));
+      return { status: 1, stdout: validEnv.VALIDATION_PROBE_TOKEN, stderr: validEnv.VALIDATION_PROBE_TOKEN };
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  assert.match(error.message, /output withheld/);
+  assert.doesNotMatch(error.message, new RegExp(validEnv.VALIDATION_PROBE_TOKEN));
+  assert.equal(paths.length, 2);
+  for (const path of paths) assert.equal(existsSync(path), false);
 });
 
 test("target mismatch blocks smoke after deploy output identity is parsed", () => {
@@ -103,6 +139,19 @@ test("target mismatch blocks smoke after deploy output identity is parsed", () =
     return successfulCommand(command, args);
   }));
   assert.equal(count, 2);
+});
+
+test("temporary validation secret is protected and cleaned", () => {
+  const path = createTemporaryWranglerSecrets(validEnv.VALIDATION_PROBE_TOKEN);
+  assert.match(path, /\.wrangler-builds-secrets-/);
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+  assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), {
+    VALIDATION_PROBE_TOKEN: validEnv.VALIDATION_PROBE_TOKEN,
+  });
+  rmSync(path);
+  const exclusivePath = createTemporaryWranglerSecrets(validEnv.VALIDATION_PROBE_TOKEN);
+  rmSync(exclusivePath);
+  assert.throws(() => createTemporaryWranglerSecrets("weak"));
 });
 
 test("build sequence installs locked dependencies and does not mutate Cloudflare", () => {
