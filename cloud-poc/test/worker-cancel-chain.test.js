@@ -42,11 +42,12 @@ function invoke(signal) {
   return worker.fetch(new Request("http://worker.test/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ model: "mock-abort", messages: [{ role: "user", content: "cancel" }], stream: true }),
+    body: JSON.stringify({ providerId: "openai", model: "mock-abort", messages: [{ role: "user", content: "cancel" }], stream: true }),
     signal,
   }), {
     UPSTREAM_ORIGIN: upstreamOrigin,
-    DB: { prepare: () => ({ bind() { return this; }, async run() { return { meta: { changes: 1 } }; }, async first() { return null; } }) },
+    WORKER_CREDENTIAL: JSON.stringify({ version: 1, authType: "api_key", apiKey: crypto.randomUUID() }),
+    DB: { prepare: () => ({ bind() { return this; }, async all() { return { results: [{ id: "connection", providerId: "openai", authType: "api_key", secretName: "WORKER_CREDENTIAL", enabledModels: "[]", priority: 0, isActive: 1 }] }; }, async run() { return { meta: { changes: 1 } }; }, async first() { return null; } }) },
   }, { waitUntil(promise) { promise.catch(() => {}); } });
 }
 

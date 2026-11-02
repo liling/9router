@@ -7,6 +7,9 @@ import { composeCloudflareBaseRuntime, composeCloudflareRequestRuntime } from ".
 import { createCloudflareBackgroundTasks } from "../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js";
 import { createD1ApiKeyRepository } from "../../open-sse/runtime/adapters/d1/apiKeyRepository.js";
 import { createD1EphemeralStore } from "../../open-sse/runtime/adapters/d1/ephemeralStore.js";
+import { createD1ConnectionRepository } from "../../open-sse/runtime/adapters/d1/connectionRepository.js";
+import { createCloudflareSecretProvider } from "../../open-sse/runtime/adapters/cloudflareSecretProvider.js";
+import { credentialFallbackIterator } from "../../open-sse/runtime/credentials/resolver.js";
 import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
 import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
@@ -128,6 +131,7 @@ export default {
           createApiKeyRepository: createD1ApiKeyRepository,
           createEphemeralStore: createD1EphemeralStore,
           createBackgroundTasks: createCloudflareBackgroundTasks,
+          createSecretProvider: createCloudflareSecretProvider,
         });
         return Response.json({ error: "missing_binding_was_accepted" }, { status: 500 });
       } catch (error) {
@@ -144,6 +148,7 @@ export default {
         createApiKeyRepository: createD1ApiKeyRepository,
         createEphemeralStore: createD1EphemeralStore,
         createBackgroundTasks: createCloudflareBackgroundTasks,
+        createSecretProvider: createCloudflareSecretProvider,
       });
     } catch (error) {
       return Response.json({ error: "runtime_dependency_unavailable", message: error.message }, { status: 500 });
@@ -296,7 +301,7 @@ export default {
     if (incomingUrl.pathname !== "/v1/chat/completions" || request.method !== "POST") {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
-    if (!env.UPSTREAM_ORIGIN) return Response.json({ error: "missing_upstream_origin" }, { status: 500 });
+    if (!env.UPSTREAM_ORIGIN) return Response.json({ error: "credential_source_unavailable" }, { status: 503 });
 
     const requestId = request.headers.get("x-poc-request-id") || crypto.randomUUID();
     while (cancelTelemetry.size >= maxCancelTelemetryEntries) {
@@ -309,36 +314,65 @@ export default {
       ? FORMATS.OPENAI
       : FORMATS.CLAUDE;
     const payload = await request.json();
-    const model = payload.model || "mock-model";
-    const credentials = {
-      apiKey: "mock-token",
-      runtimeTransport: {
-        baseUrl: env.UPSTREAM_ORIGIN,
-        urlSuffix: "/v1/chat/completions",
-        headers: { accept: payload.stream ? "text/event-stream" : "application/json" },
-      },
-    };
+    const model = payload.model;
+    const providerId = payload.providerId;
+    if (typeof providerId !== "string" || !providerId || typeof model !== "string" || !model) {
+      return Response.json({ error: "credential_unsupported", requestId }, { status: 400 });
+    }
+    let executor;
+    try { executor = getExecutor(providerId); }
+    catch { return Response.json({ error: "credential_unsupported", requestId }, { status: 400 }); }
     const executionAbort = new AbortController();
     if (request.signal.aborted) executionAbort.abort(request.signal.reason);
     else request.signal.addEventListener("abort", () => executionAbort.abort(request.signal.reason), { once: true });
 
     try {
-      const translatedRequest = translateRequest(
-        clientFormat,
-        FORMATS.OPENAI,
+      const attempts = credentialFallbackIterator({
+        providerId,
         model,
-        payload,
-        Boolean(payload.stream),
-        credentials,
-        "openai",
-      );
-      const { response: upstreamResponse } = await getExecutor("openai").execute({
-        model,
-        body: translatedRequest,
-        stream: Boolean(payload.stream),
-        credentials,
-        signal: executionAbort.signal,
+        repository: createD1ConnectionRepository(env.DB),
+        secretProvider: requestRuntime.assertPort("secret"),
       });
+      let upstreamResponse;
+      for await (const resolved of attempts) {
+        const credentials = {
+          ...resolved,
+          runtimeTransport: {
+            baseUrl: env.UPSTREAM_ORIGIN,
+            urlSuffix: "/v1/chat/completions",
+            headers: { accept: payload.stream ? "text/event-stream" : "application/json" },
+          },
+        };
+        const translatedRequest = translateRequest(
+          clientFormat,
+          FORMATS.OPENAI,
+          model,
+          payload,
+          Boolean(payload.stream),
+          credentials,
+          providerId,
+        );
+        const result = await executor.execute({
+          model,
+          body: translatedRequest,
+          stream: Boolean(payload.stream),
+          credentials,
+          signal: executionAbort.signal,
+        });
+        upstreamResponse = result.response;
+        if (upstreamResponse.status !== 401 && upstreamResponse.status !== 403) break;
+        try {
+          await createD1ConnectionRepository(env.DB).markUnavailable({
+            id: resolved.connectionId, status: "unauthorized", model,
+          });
+        } catch {
+          return Response.json({ error: "credential_source_unavailable", requestId }, { status: 503 });
+        }
+      }
+      if (!upstreamResponse) return Response.json({ error: "credential_unavailable", requestId }, { status: 503 });
+      if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
+        return Response.json({ error: "credential_unavailable", requestId }, { status: 503 });
+      }
       if (!upstreamResponse.ok) return upstreamResponse;
       if (clientFormat === FORMATS.OPENAI) return upstreamResponse;
 
@@ -356,7 +390,9 @@ export default {
       });
     } catch (error) {
       if (executionAbort.signal.aborted) throw error;
-      return Response.json({ error: "upstream_unavailable" }, { status: 502, headers: jsonHeaders });
+      const code = ["credential_unavailable", "credential_source_unavailable", "credential_unsupported"].includes(error.code)
+        ? error.code : "upstream_unavailable";
+      return Response.json({ error: code, requestId }, { status: code.startsWith("credential_") ? 503 : 502, headers: jsonHeaders });
     }
   },
 };

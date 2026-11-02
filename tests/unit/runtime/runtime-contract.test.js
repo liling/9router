@@ -10,6 +10,7 @@ import { composeCloudflareBaseRuntime, composeCloudflareRequestRuntime } from '.
 import { createCloudflareBackgroundTasks } from '../../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js';
 import { createD1ApiKeyRepository } from '../../../open-sse/runtime/adapters/d1/apiKeyRepository.js';
 import { createD1EphemeralStore } from '../../../open-sse/runtime/adapters/d1/ephemeralStore.js';
+import { createCloudflareSecretProvider } from '../../../open-sse/runtime/adapters/cloudflareSecretProvider.js';
 
 function testCompositionProfile(id, availablePorts) {
   const profile = RUNTIME_PROFILES[id];
@@ -161,6 +162,7 @@ describe('runtime capability contracts', () => {
       createApiKeyRepository: createD1ApiKeyRepository,
       createEphemeralStore: createD1EphemeralStore,
       createBackgroundTasks: createCloudflareBackgroundTasks,
+      createSecretProvider: createCloudflareSecretProvider,
     };
     const a = composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: { waitUntil: (p) => waitsA.push(p) } });
     const b = composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: { waitUntil: (p) => waitsB.push(p) } });
@@ -176,7 +178,7 @@ describe('runtime capability contracts', () => {
     expect(waitsA).toHaveLength(1);
     expect(waitsB).toHaveLength(1);
     expect(getRuntime()).toBe(base);
-    for (const port of ['persistence', 'ephemeral', 'backgroundTasks']) expect(() => base.assertPort(port)).toThrow(RuntimeCapabilityError);
+    for (const port of ['persistence', 'ephemeral', 'backgroundTasks', 'secret']) expect(() => base.assertPort(port)).toThrow(RuntimeCapabilityError);
     expect(() => composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: {}, executionContext: { waitUntil() {} } })).toThrow(/D1/);
     expect(() => composeCloudflareRequestRuntime({ ...factories, baseRuntime: base, env: { DB: makeDb() }, executionContext: {} })).toThrow(/background registration/);
   });
