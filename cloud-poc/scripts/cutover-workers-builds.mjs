@@ -69,6 +69,13 @@ async function readGithubMasterSha() {
   return payload.sha;
 }
 
+async function assertExpectedMasterSha() {
+  const masterSha = await readGithubMasterSha();
+  if (masterSha !== EXPECTED_MASTER_SHA) {
+    fail(`master drift detected: expected ${EXPECTED_MASTER_SHA}, got ${masterSha}. Refusing cutover.`);
+  }
+}
+
 async function getBuildConfig() {
   return cf(`/accounts/${ACCOUNT_ID}/builds/workers/${SCRIPT_TAG}`);
 }
@@ -222,19 +229,18 @@ async function check() {
 }
 
 async function apply() {
-  const masterSha = await readGithubMasterSha();
-  if (masterSha !== EXPECTED_MASTER_SHA) {
-    fail(`master drift detected: expected ${EXPECTED_MASTER_SHA}, got ${masterSha}. Refusing cutover.`);
-  }
+  await assertExpectedMasterSha();
 
   const before = await readAndValidate([FROM_BRANCH]);
   console.log("BEFORE", JSON.stringify(safeSummary(before.config, before.trigger), null, 2));
 
+  await assertExpectedMasterSha();
   console.log(`PATCH production branch: ${FROM_BRANCH} -> ${TO_BRANCH}`);
   await patchBranch(TO_BRANCH);
   const after = await waitForBranch(TO_BRANCH);
   console.log("AFTER", JSON.stringify(safeSummary(after.config, after.trigger), null, 2));
 
+  await assertExpectedMasterSha();
   console.log(`TRIGGER exact build for ${EXPECTED_MASTER_SHA}`);
   const created = await startExactBuild(after.trigger.trigger_uuid);
   const buildUuid = created?.build_uuid;
