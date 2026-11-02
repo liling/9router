@@ -56,6 +56,7 @@ const { handleSystemone } = await import("../../src/sse/handlers/systemone.js");
 const geminiRoute = await import("../../src/app/api/v1beta/models/[...path]/route.js");
 const modelsRoute = await import("../../src/app/api/v1/models/route.js");
 const modelsKindRoute = await import("../../src/app/api/v1/models/[...model]/route.js");
+const ollamaChatRoute = await import("../../src/app/api/v1/api/chat/route.js");
 
 const enc = new TextEncoder();
 const sse = (frames) => new Response(new ReadableStream({
@@ -143,6 +144,21 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
       expect(body).not.toContain("sk-empty");
       expect(body).not.toContain("private-provider-model");
     }
+    expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
+    expect(mocks.handleChatCore).not.toHaveBeenCalled();
+  });
+  it("Ollama-compatible chat preserves a restricted-key denial as generic JSON 403", async () => {
+    const response = await ollamaChatRoute.POST(post("/v1/api/chat", {
+      model: "openai/private-provider-model",
+      messages: [{ role: "user", content: "hi" }],
+    }, "sk-empty"));
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const body = await response.text();
+    expect(body).toContain("This API key is not allowed to access the requested resource");
+    expect(body).not.toContain("sk-empty");
+    expect(body).not.toContain("private-provider-model");
     expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
     expect(mocks.handleChatCore).not.toHaveBeenCalled();
   });
