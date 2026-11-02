@@ -100,6 +100,7 @@ beforeEach(() => {
 });
 
 const chat = (model, k) => handleChat(post("/v1/chat/completions", { model, stream: true, messages: [{ role: "user", content: "hi" }] }, k));
+const chatJson = (model, k) => handleChat(post("/v1/chat/completions", { model, stream: false, messages: [{ role: "user", content: "hi" }] }, k));
 
 describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handleChat)", () => {
   beforeEach(() => mocks.getProviderCredentials.mockResolvedValue({ connectionId: "conn", connectionName: "mock" }));
@@ -131,6 +132,18 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
   });
   it("empty-list key: 403 on everything", async () => {
     for (const m of ["Main", "openai/model-a", "openai/model-b"]) expect((await chat(m, "sk-empty")).status).toBe(403);
+    expect(mocks.handleChatCore).not.toHaveBeenCalled();
+  });
+  it("JSON and SSE requests both fail closed before provider access for an unlisted target", async () => {
+    for (const request of [chatJson, chat]) {
+      const response = await request("openai/private-provider-model", "sk-empty");
+      expect(response.status).toBe(403);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      const body = await response.text();
+      expect(body).not.toContain("sk-empty");
+      expect(body).not.toContain("private-provider-model");
+    }
+    expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
     expect(mocks.handleChatCore).not.toHaveBeenCalled();
   });
   it("restricted key on an allowed combo still fails over from an erroring member to the next", async () => {
