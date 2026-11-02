@@ -9,6 +9,7 @@ let upstreamOrigin;
 let upstreamAborted = false;
 let lastUpstreamRequest;
 let unauthorizedAttempts = 0;
+let currentCredentialValues = [];
 
 before(async () => {
   upstream = createServer(async (request, response) => {
@@ -68,9 +69,10 @@ async function invoke(payload, signal, headers = {}, connectionCount = 1) {
     priority: index,
     isActive: 1,
   }));
-  const secrets = Object.fromEntries(connections.map((connection) => [
+  currentCredentialValues = connections.map(() => crypto.randomUUID());
+  const secrets = Object.fromEntries(connections.map((connection, index) => [
     connection.secretName,
-    JSON.stringify({ version: 1, authType: "api_key", apiKey: crypto.randomUUID() }),
+    JSON.stringify({ version: 1, authType: "api_key", apiKey: currentCredentialValues[index] }),
   ]));
   return worker.fetch(request, {
     UPSTREAM_ORIGIN: upstreamOrigin,
@@ -85,6 +87,7 @@ test("translates a Claude JSON request through the production executor and back"
   const body = await response.json();
   assert.equal(body.type, "message");
   assert.equal(body.content[0].text, "json");
+  for (const value of currentCredentialValues) assert.equal(JSON.stringify(body).includes(value), false);
   assert.equal(lastUpstreamRequest.url, "/v1/chat/completions");
   assert.deepEqual(lastUpstreamRequest.body.messages, [{ role: "user", content: "json" }]);
   assert.equal(lastUpstreamRequest.body.stream, false);
