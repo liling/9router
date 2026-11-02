@@ -195,7 +195,7 @@ describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) =>
   it("denies an unlisted model with 403 before any credential lookup", async () => {
     const r = await call(denied, "sk-media");
     expect(r.status).toBe(403);
-    expect((await r.json()).error.message).toContain(denied);
+    expect((await r.json()).error.message).toBe("This API key is not allowed to access the requested resource");
     expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
   });
   it("lets a listed model through to the credential lookup", async () => {
