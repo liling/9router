@@ -56,6 +56,7 @@ const { handleSystemone } = await import("../../src/sse/handlers/systemone.js");
 const geminiRoute = await import("../../src/app/api/v1beta/models/[...path]/route.js");
 const modelsRoute = await import("../../src/app/api/v1/models/route.js");
 const modelsKindRoute = await import("../../src/app/api/v1/models/[...model]/route.js");
+const ollamaChatRoute = await import("../../src/app/api/v1/api/chat/route.js");
 
 const enc = new TextEncoder();
 const sse = (frames) => new Response(new ReadableStream({
@@ -100,6 +101,7 @@ beforeEach(() => {
 });
 
 const chat = (model, k) => handleChat(post("/v1/chat/completions", { model, stream: true, messages: [{ role: "user", content: "hi" }] }, k));
+const chatJson = (model, k) => handleChat(post("/v1/chat/completions", { model, stream: false, messages: [{ role: "user", content: "hi" }] }, k));
 
 describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handleChat)", () => {
   beforeEach(() => mocks.getProviderCredentials.mockResolvedValue({ connectionId: "conn", connectionName: "mock" }));
@@ -131,6 +133,33 @@ describe("chat (/v1/chat/completions, /v1/messages, /v1/responses all use handle
   });
   it("empty-list key: 403 on everything", async () => {
     for (const m of ["Main", "openai/model-a", "openai/model-b"]) expect((await chat(m, "sk-empty")).status).toBe(403);
+    expect(mocks.handleChatCore).not.toHaveBeenCalled();
+  });
+  it("JSON and SSE requests both fail closed before provider access for an unlisted target", async () => {
+    for (const request of [chatJson, chat]) {
+      const response = await request("openai/private-provider-model", "sk-empty");
+      expect(response.status).toBe(403);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      const body = await response.text();
+      expect(body).not.toContain("sk-empty");
+      expect(body).not.toContain("private-provider-model");
+    }
+    expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
+    expect(mocks.handleChatCore).not.toHaveBeenCalled();
+  });
+  it("Ollama-compatible chat preserves a restricted-key denial as generic JSON 403", async () => {
+    const response = await ollamaChatRoute.POST(post("/v1/api/chat", {
+      model: "openai/private-provider-model",
+      messages: [{ role: "user", content: "hi" }],
+    }, "sk-empty"));
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const body = await response.text();
+    expect(body).toContain("This API key is not allowed to access the requested resource");
+    expect(body).not.toContain("sk-empty");
+    expect(body).not.toContain("private-provider-model");
+    expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
     expect(mocks.handleChatCore).not.toHaveBeenCalled();
   });
   it("restricted key on an allowed combo still fails over from an erroring member to the next", async () => {
@@ -182,7 +211,7 @@ describe.each(handlers)("%s handler is wired", (_name, call, allowed, denied) =>
   it("denies an unlisted model with 403 before any credential lookup", async () => {
     const r = await call(denied, "sk-media");
     expect(r.status).toBe(403);
-    expect((await r.json()).error.message).toContain(denied);
+    expect((await r.json()).error.message).toBe("This API key is not allowed to access the requested resource");
     expect(mocks.getProviderCredentials).not.toHaveBeenCalled();
   });
   it("lets a listed model through to the credential lookup", async () => {

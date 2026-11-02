@@ -111,8 +111,8 @@ async function isModelStringAllowed(ctx, requested) {
 }
 
 export function keyAccessDeniedResponse(ctx, requested) {
-  log.warn("AUTH", `key-access: key "${ctx.keyName}" denied "${requested}"`);
-  return errorResponse(HTTP_STATUS.FORBIDDEN, keyAccessDeniedMessage(requested));
+  log.warn("AUTH", "key-access: request denied");
+  return errorResponse(HTTP_STATUS.FORBIDDEN, keyAccessDeniedMessage());
 }
 
 /**

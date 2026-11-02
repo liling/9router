@@ -17,8 +17,7 @@ export const KEY_ACCESS_PROVIDER_AS_MODEL_KINDS = Object.freeze(["webSearch", "w
 // /v1/models owner tag for combo entries.
 export const KEY_ACCESS_COMBO_OWNER = "combo";
 
-// Client-facing 403 message. Names only what the client itself sent: never the
-// key name or the key's allow list.
-export function keyAccessDeniedMessage(requested) {
-  return `This API key is not allowed to use model "${requested}"`;
+// Client-facing 403 message. Do not expose routing/provider details on denial.
+export function keyAccessDeniedMessage() {
+  return "This API key is not allowed to access the requested resource";
 }
