@@ -5,6 +5,15 @@ const TABLE = 'worker_connections';
 export function createD1ConnectionRepository(db) {
   if (!db?.prepare) throw new TypeError('D1 connection repository requires a database');
   return assertConnectionRepository(Object.freeze({
+    async getSelectionStrategy({ providerId }) {
+      if (typeof providerId !== 'string' || !providerId) throw new TypeError('Invalid provider lookup');
+      const row = await db.prepare(
+        'SELECT selection_strategy AS strategy FROM worker_provider_settings WHERE provider_id = ?',
+      ).bind(providerId).first();
+      if (!row) return 'fill_first';
+      if (typeof row.strategy !== 'string' || !row.strategy) throw new Error('CONNECTION_SOURCE_INVALID');
+      return row.strategy;
+    },
     async listEligibleConnections({ providerId, model, excludedIds = [] }) {
       if (!providerId || !model || !Array.isArray(excludedIds)) throw new TypeError('Invalid connection lookup');
       const rows = await db.prepare(
@@ -18,7 +27,7 @@ export function createD1ConnectionRepository(db) {
       if (!Array.isArray(rows?.results)) throw new Error('CONNECTION_SOURCE_INVALID');
       const excluded = new Set(excludedIds);
       const now = Date.now();
-      return rows.results.filter((row) => {
+      const scoped = rows.results.filter((row) => {
         if (excluded.has(row.id)) return false;
         if (row.enabledModels) {
           let enabled;
@@ -26,15 +35,26 @@ export function createD1ConnectionRepository(db) {
           if (!Array.isArray(enabled)) throw new Error('CONNECTION_SOURCE_INVALID');
           if (enabled.length && !enabled.includes(model)) return false;
         }
-        for (const field of ['cooldownUntil', 'unavailableUntil']) {
-          if (row[field] && Date.parse(row[field]) > now) return false;
-          if (row[field] && !Number.isFinite(Date.parse(row[field]))) throw new Error('CONNECTION_SOURCE_INVALID');
-        }
         if (typeof row.id !== 'string' || row.providerId !== providerId || typeof row.authType !== 'string') {
           throw new Error('CONNECTION_SOURCE_INVALID');
         }
         return true;
       });
+      const candidates = [];
+      const unlockTimes = [];
+      for (const row of scoped) {
+        const cooldowns = [row.cooldownUntil, row.unavailableUntil].filter(Boolean).map(Date.parse);
+        if (cooldowns.some((expiry) => !Number.isFinite(expiry))) throw new Error('CONNECTION_SOURCE_INVALID');
+        const unlockAt = Math.max(0, ...cooldowns);
+        if (unlockAt > now) unlockTimes.push(unlockAt);
+        else candidates.push(row);
+      }
+      return {
+        connections: candidates,
+        retryAfterAt: scoped.length > 0 && candidates.length === 0 && unlockTimes.length === scoped.length
+          ? Math.min(...unlockTimes)
+          : null,
+      };
     },
     async markUnavailable({ id, status, model, until }) {
       if (!id || !['unauthorized', 'rate_limited', 'unavailable'].includes(status)) throw new TypeError('Invalid connection status');

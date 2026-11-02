@@ -53,7 +53,7 @@ before(async () => {
 
 after(async () => new Promise((resolve) => upstream.close(resolve)));
 
-async function invoke(payload, signal, headers = {}, connectionCount = 1) {
+async function invoke(payload, signal, headers = {}, connectionCount = 1, options = {}) {
   const request = new Request("http://worker.test/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
@@ -68,6 +68,7 @@ async function invoke(payload, signal, headers = {}, connectionCount = 1) {
     enabledModels: "[]",
     priority: index,
     isActive: 1,
+    cooldownUntil: options.cooldownUntil || null,
   }));
   currentCredentialValues = connections.map(() => crypto.randomUUID());
   const secrets = Object.fromEntries(connections.map((connection, index) => [
@@ -77,7 +78,7 @@ async function invoke(payload, signal, headers = {}, connectionCount = 1) {
   return worker.fetch(request, {
     UPSTREAM_ORIGIN: upstreamOrigin,
     ...secrets,
-    DB: { prepare(sql) { return { bind() { return this; }, async all() { return { results: connections }; }, async run() { return { meta: { changes: 1 } }; }, async first() { return null; } }; } },
+    DB: { prepare(sql) { return { bind() { return this; }, async all() { return { results: connections }; }, async run() { return { meta: { changes: 1 } }; }, async first() { return sql.includes("worker_provider_settings") && options.strategy ? { strategy: options.strategy } : null; } }; } },
   }, { waitUntil(promise) { promise.catch(() => {}); } });
 }
 
@@ -133,6 +134,27 @@ test("does not return upstream authorization details when all connections fail",
   const body = await response.text();
   assert.match(body, /credential_unavailable/);
   assert.doesNotMatch(body, /unauthorized|WORKER_CREDENTIAL/);
+});
+
+test("rejects a configured non-fill-first strategy without looking up secrets", async () => {
+  lastUpstreamRequest = null;
+  const response = await invoke({ providerId: "openai", model: "mock-model", messages: [] }, undefined, {}, 1, { strategy: "round_robin" });
+  assert.equal(response.status, 400);
+  assert.deepEqual(Object.keys(await response.json()).sort(), ["error", "requestId"]);
+  assert.equal(lastUpstreamRequest, null);
+});
+
+test("returns only a sanitized Retry-After when every candidate is cooldown-locked", async () => {
+  const expiry = new Date(Date.now() + 30_000).toISOString();
+  const response = await invoke({ providerId: "openai", model: "mock-model", messages: [] }, undefined, {}, 2, { cooldownUntil: expiry });
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.error, "credential_unavailable");
+  assert.deepEqual(Object.keys(body).sort(), ["error", "requestId"]);
+  const retryAfter = Number(response.headers.get("retry-after"));
+  assert.ok(Number.isInteger(retryAfter) && retryAfter > 0 && retryAfter <= 30);
+  assert.notEqual(response.headers.get("retry-after"), expiry);
+  assert.doesNotMatch(response.headers.get("retry-after"), /connection|credential|WORKER_CREDENTIAL/i);
 });
 
 test("aborts the production executor upstream fetch when the client aborts", async () => {

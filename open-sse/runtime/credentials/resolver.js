@@ -24,11 +24,15 @@ export async function resolveConnectionCredentials({ providerId, model, reposito
   assertSecretProvider(secretProvider);
   if (typeof providerId !== 'string' || !providerId || typeof model !== 'string' || !model) throw failure('credential_unsupported');
   if (!Array.isArray(excludedIds)) throw failure('credential_unsupported');
+  let strategy;
+  try { strategy = await repository.getSelectionStrategy({ providerId }); }
+  catch { throw failure('credential_source_unavailable'); }
+  if (strategy !== 'fill_first') throw failure('credential_strategy_unsupported');
   let rows;
   try { rows = await repository.listEligibleConnections({ providerId, model, excludedIds }); }
   catch { throw failure('credential_source_unavailable'); }
-  if (!Array.isArray(rows)) throw failure('credential_source_unavailable');
-  for (const row of rows) {
+  if (!rows || !Array.isArray(rows.connections)) throw failure('credential_source_unavailable');
+  for (const row of rows.connections) {
     if (!row || row.providerId !== providerId || typeof row.id !== 'string' || typeof row.authType !== 'string') throw failure('credential_source_unavailable');
     if (excludedIds.includes(row.id)) throw failure('credential_source_unavailable');
     if (row.authType === 'none') {
@@ -44,20 +48,26 @@ export async function resolveConnectionCredentials({ providerId, model, reposito
     const fields = validateEnvelope(raw, row.authType);
     if (fields) return Object.freeze({ ...fields, authType: row.authType, connectionId: row.id });
   }
-  throw failure('credential_unavailable');
+  const unavailable = failure('credential_unavailable');
+  if (rows.connections.length === 0 && Number.isFinite(rows.retryAfterAt) && rows.retryAfterAt > Date.now()) {
+    unavailable.retryAfterAt = rows.retryAfterAt;
+  }
+  throw unavailable;
 }
 
 export async function* credentialFallbackIterator(input) {
   const excludedIds = new Set(input.excludedIds || []);
+  let yielded = false;
   for (;;) {
     let result;
     try {
       result = await resolveConnectionCredentials({ ...input, excludedIds: [...excludedIds] });
     } catch (error) {
-      if (error.code === 'credential_unavailable') return;
+      if (error.code === 'credential_unavailable' && yielded) return;
       throw error;
     }
     yield result;
+    yielded = true;
     excludedIds.add(result.connectionId);
   }
 }

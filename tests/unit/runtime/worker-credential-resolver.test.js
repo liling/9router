@@ -10,9 +10,10 @@ function row(id, overrides = {}) {
 
 function repository(rows, calls = []) {
   return {
+    async getSelectionStrategy() { return 'fill_first'; },
     async listEligibleConnections(input) {
       calls.push(input);
-      return rows.filter((item) => item.providerId === input.providerId && !input.excludedIds.includes(item.id));
+      return { connections: rows.filter((item) => item.providerId === input.providerId && !input.excludedIds.includes(item.id)), retryAfterAt: null };
     },
     async markUnavailable() {},
   };
@@ -101,10 +102,35 @@ test('D1 adapter scopes lookup to exact provider and orders deterministic fill-f
   let values;
   const adapter = createD1ConnectionRepository({ prepare(sql) {
     statement = sql;
-    return { bind(...args) { values = args; return this; }, async all() { return { results: [] }; } };
+    return { bind(...args) { values = args; return this; }, async all() { return { results: [] }; }, async first() { return null; } };
   } });
+  assert.equal(await adapter.getSelectionStrategy({ providerId: 'openai' }), 'fill_first');
   await adapter.listEligibleConnections({ providerId: 'openai', model: 'm' });
   assert.match(statement, /provider_id = \?/);
   assert.match(statement, /ORDER BY priority ASC, id ASC/);
   assert.deepEqual(values, ['openai', 'm']);
+});
+
+test('rejects a configured non-fill-first strategy explicitly', async () => {
+  const repo = repository([row('x')]);
+  repo.getSelectionStrategy = async () => 'round_robin';
+  await assert.rejects(resolveConnectionCredentials({
+    providerId: 'openai', model: 'm', repository: repo,
+    secretProvider: { async getSecret() { throw new Error('must not read'); } },
+  }), (error) => error.code === 'credential_strategy_unsupported');
+});
+
+test('retains only cooldown expiry for an all-locked candidate result', async () => {
+  const expiry = Date.now() + 30_000;
+  const repo = repository([]);
+  repo.listEligibleConnections = async () => ({ connections: [], retryAfterAt: expiry });
+  await assert.rejects(resolveConnectionCredentials({
+    providerId: 'openai', model: 'm', repository: repo,
+    secretProvider: { async getSecret() { return null; } },
+  }), (error) => {
+    assert.equal(error.code, 'credential_unavailable');
+    assert.equal(error.retryAfterAt, expiry);
+    assert.equal(Object.keys(error).some((key) => /id|secret|connection/i.test(key)), false);
+    return true;
+  });
 });

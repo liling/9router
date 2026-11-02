@@ -390,9 +390,15 @@ export default {
       });
     } catch (error) {
       if (executionAbort.signal.aborted) throw error;
-      const code = ["credential_unavailable", "credential_source_unavailable", "credential_unsupported"].includes(error.code)
+      const code = ["credential_unavailable", "credential_source_unavailable", "credential_unsupported", "credential_strategy_unsupported"].includes(error.code)
         ? error.code : "upstream_unavailable";
-      return Response.json({ error: code, requestId }, { status: code.startsWith("credential_") ? 503 : 502, headers: jsonHeaders });
+      const headers = new Headers(jsonHeaders);
+      if (Number.isFinite(error.retryAfterAt) && error.retryAfterAt > Date.now()) {
+        headers.set("retry-after", String(Math.max(1, Math.ceil((error.retryAfterAt - Date.now()) / 1000))));
+      }
+      const status = code === "credential_strategy_unsupported" || code === "credential_unsupported" ? 400
+        : code.startsWith("credential_") ? 503 : 502;
+      return Response.json({ error: code, requestId }, { status, headers });
     }
   },
 };
