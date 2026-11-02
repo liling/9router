@@ -4,6 +4,7 @@ import { composeCloudflareRequestRuntime } from "../../open-sse/runtime/adapters
 import { createCloudflareBackgroundTasks } from "../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js";
 import { createD1ApiKeyRepository } from "../../open-sse/runtime/adapters/d1/apiKeyRepository.js";
 import { createD1EphemeralStore } from "../../open-sse/runtime/adapters/d1/ephemeralStore.js";
+import { createCloudflareSecretProvider } from "../../open-sse/runtime/adapters/cloudflareSecretProvider.js";
 
 function requestRuntime(env, executionContext, ephemeralOptions) {
   return composeCloudflareRequestRuntime({
@@ -11,6 +12,7 @@ function requestRuntime(env, executionContext, ephemeralOptions) {
     createApiKeyRepository: createD1ApiKeyRepository,
     createEphemeralStore: createD1EphemeralStore,
     createBackgroundTasks: createCloudflareBackgroundTasks,
+    createSecretProvider: createCloudflareSecretProvider,
   });
 }
 

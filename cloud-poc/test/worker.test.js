@@ -8,6 +8,8 @@ let upstream;
 let upstreamOrigin;
 let upstreamAborted = false;
 let lastUpstreamRequest;
+let unauthorizedAttempts = 0;
+let currentCredentialValues = [];
 
 before(async () => {
   upstream = createServer(async (request, response) => {
@@ -15,7 +17,10 @@ before(async () => {
     for await (const chunk of request) body += chunk;
     const input = JSON.parse(body);
     lastUpstreamRequest = { url: request.url, body: input };
-    if (input.model === "mock-error") {
+    if (input.model === "mock-unauthorized-all" || (input.model === "mock-unauthorized" && unauthorizedAttempts++ === 0)) {
+      response.writeHead(401, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: "unauthorized" }));
+    } else if (input.model === "mock-error") {
       response.writeHead(429, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: "mock rate limit" }));
     } else if (input.model === "mock-abort") {
@@ -48,32 +53,49 @@ before(async () => {
 
 after(async () => new Promise((resolve) => upstream.close(resolve)));
 
-async function invoke(payload, signal, headers = {}) {
+async function invoke(payload, signal, headers = {}, connectionCount = 1, options = {}) {
   const request = new Request("http://worker.test/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(payload),
     signal,
   });
+  const connections = Array.from({ length: connectionCount }, (_, index) => ({
+    id: `connection-${index}`,
+    providerId: "openai",
+    authType: "api_key",
+    secretName: `WORKER_CREDENTIAL_${index}`,
+    enabledModels: "[]",
+    priority: index,
+    isActive: 1,
+    cooldownUntil: options.cooldownUntil || null,
+  }));
+  currentCredentialValues = connections.map(() => crypto.randomUUID());
+  const secrets = Object.fromEntries(connections.map((connection, index) => [
+    connection.secretName,
+    JSON.stringify({ version: 1, authType: "api_key", apiKey: currentCredentialValues[index] }),
+  ]));
   return worker.fetch(request, {
     UPSTREAM_ORIGIN: upstreamOrigin,
-    DB: { prepare: () => ({ bind() { return this; }, async run() { return { meta: { changes: 1 } }; }, async first() { return null; } }) },
+    ...secrets,
+    DB: { prepare(sql) { return { bind() { return this; }, async all() { return { results: connections }; }, async run() { return { meta: { changes: 1 } }; }, async first() { return sql.includes("worker_provider_settings") && options.strategy ? { strategy: options.strategy } : null; } }; } },
   }, { waitUntil(promise) { promise.catch(() => {}); } });
 }
 
 test("translates a Claude JSON request through the production executor and back", async () => {
-  const response = await invoke({ model: "mock-model", max_tokens: 32, messages: [{ role: "user", content: "json" }] });
+  const response = await invoke({ providerId: "openai", model: "mock-model", max_tokens: 32, messages: [{ role: "user", content: "json" }] });
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.type, "message");
   assert.equal(body.content[0].text, "json");
+  for (const value of currentCredentialValues) assert.equal(JSON.stringify(body).includes(value), false);
   assert.equal(lastUpstreamRequest.url, "/v1/chat/completions");
   assert.deepEqual(lastUpstreamRequest.body.messages, [{ role: "user", content: "json" }]);
   assert.equal(lastUpstreamRequest.body.stream, false);
 });
 
 test("translates production executor multi-chunk OpenAI SSE to Claude SSE", async () => {
-  const response = await invoke({ model: "mock-model", max_tokens: 32, messages: [{ role: "user", content: "stream" }], stream: true });
+  const response = await invoke({ providerId: "openai", model: "mock-model", max_tokens: 32, messages: [{ role: "user", content: "stream" }], stream: true });
   assert.match(response.headers.get("content-type"), /^text\/event-stream/);
   const text = await response.text();
   assert.match(text, /event: message_start/);
@@ -86,14 +108,58 @@ test("translates production executor multi-chunk OpenAI SSE to Claude SSE", asyn
 });
 
 test("preserves upstream non-2xx status and body", async () => {
-  const response = await invoke({ model: "mock-error", messages: [{ role: "user", content: "fail" }] });
+  const response = await invoke({ providerId: "openai", model: "mock-error", messages: [{ role: "user", content: "fail" }] });
   assert.equal(response.status, 429);
   assert.deepEqual(await response.json(), { error: "mock rate limit" });
 });
 
+test("retries unauthorized credentials only against another same-provider connection", async () => {
+  unauthorizedAttempts = 0;
+  const response = await invoke({ providerId: "openai", model: "mock-unauthorized", messages: [{ role: "user", content: "retry" }] }, undefined, {}, 2);
+  assert.equal(response.status, 200);
+  assert.equal(unauthorizedAttempts, 2);
+});
+
+test("returns a sanitized failure when no connection is eligible", async () => {
+  const response = await invoke({ providerId: "openai", model: "mock-model", messages: [] }, undefined, {}, 0);
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.error, "credential_unavailable");
+  assert.equal(typeof body.requestId, "string");
+});
+
+test("does not return upstream authorization details when all connections fail", async () => {
+  const response = await invoke({ providerId: "openai", model: "mock-unauthorized-all", messages: [] }, undefined, {}, 2);
+  assert.equal(response.status, 503);
+  const body = await response.text();
+  assert.match(body, /credential_unavailable/);
+  assert.doesNotMatch(body, /unauthorized|WORKER_CREDENTIAL/);
+});
+
+test("rejects a configured non-fill-first strategy without looking up secrets", async () => {
+  lastUpstreamRequest = null;
+  const response = await invoke({ providerId: "openai", model: "mock-model", messages: [] }, undefined, {}, 1, { strategy: "round_robin" });
+  assert.equal(response.status, 400);
+  assert.deepEqual(Object.keys(await response.json()).sort(), ["error", "requestId"]);
+  assert.equal(lastUpstreamRequest, null);
+});
+
+test("returns only a sanitized Retry-After when every candidate is cooldown-locked", async () => {
+  const expiry = new Date(Date.now() + 30_000).toISOString();
+  const response = await invoke({ providerId: "openai", model: "mock-model", messages: [] }, undefined, {}, 2, { cooldownUntil: expiry });
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.error, "credential_unavailable");
+  assert.deepEqual(Object.keys(body).sort(), ["error", "requestId"]);
+  const retryAfter = Number(response.headers.get("retry-after"));
+  assert.ok(Number.isInteger(retryAfter) && retryAfter > 0 && retryAfter <= 30);
+  assert.notEqual(response.headers.get("retry-after"), expiry);
+  assert.doesNotMatch(response.headers.get("retry-after"), /connection|credential|WORKER_CREDENTIAL/i);
+});
+
 test("aborts the production executor upstream fetch when the client aborts", async () => {
   const controller = new AbortController();
-  const response = await invoke({ model: "mock-abort", messages: [{ role: "user", content: "cancel" }], stream: true }, controller.signal);
+  const response = await invoke({ providerId: "openai", model: "mock-abort", messages: [{ role: "user", content: "cancel" }], stream: true }, controller.signal);
   const reader = response.body.getReader();
   const firstChunk = await reader.read();
   assert.ok(firstChunk.value?.length);

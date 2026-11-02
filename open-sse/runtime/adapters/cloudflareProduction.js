@@ -3,7 +3,7 @@ import { defineRuntimeDescriptor } from '../descriptor.js';
 import { RUNTIME_PROFILES } from '../profiles/index.js';
 
 const profile = RUNTIME_PROFILES['cloudflare-worker'];
-const REQUEST_PORTS = ['persistence', 'ephemeral', 'backgroundTasks'];
+const REQUEST_PORTS = ['persistence', 'ephemeral', 'backgroundTasks', 'secret'];
 
 function deriveProfile(availablePorts) {
   const available = new Set(availablePorts);
@@ -29,7 +29,7 @@ export function composeCloudflareBaseRuntime(fetch = globalThis.fetch) {
 
 export function composeCloudflareRequestRuntime({
   baseRuntime, env, executionContext, ephemeralOptions,
-  createApiKeyRepository, createEphemeralStore, createBackgroundTasks,
+  createApiKeyRepository, createEphemeralStore, createBackgroundTasks, createSecretProvider,
 }) {
   if (!baseRuntime?.descriptor || baseRuntime.descriptor.id !== profile.id) {
     throw new TypeError('Cloudflare base RuntimeContext is required');
@@ -38,7 +38,7 @@ export function composeCloudflareRequestRuntime({
   if (typeof executionContext?.['wait' + 'Until'] !== 'function') {
     throw new TypeError('Missing required runtime dependency: Worker background registration');
   }
-  if (![createApiKeyRepository, createEphemeralStore, createBackgroundTasks].every((factory) => typeof factory === 'function')) {
+  if (![createApiKeyRepository, createEphemeralStore, createBackgroundTasks, createSecretProvider].every((factory) => typeof factory === 'function')) {
     throw new TypeError('Cloudflare production adapter factories are required');
   }
   const ephemeral = createEphemeralStore(env.DB, ephemeralOptions);
@@ -48,5 +48,6 @@ export function composeCloudflareRequestRuntime({
     persistence: createApiKeyRepository(env.DB),
     ephemeral,
     backgroundTasks,
+    secret: createSecretProvider(env),
   });
 }
