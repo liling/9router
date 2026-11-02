@@ -1,0 +1,1846 @@
+{
+  "numTotalTestSuites": 3,
+  "numPassedTestSuites": 3,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 150,
+  "numPassedTests": 150,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 150,
+    "total": 150,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1792645484756,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) agnes → url (stream + non-stream)",
+          "status": "passed",
+          "title": "agnes → url (stream + non-stream)",
+          "duration": 5.000680999999986,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) alicode → url (stream + non-stream)",
+          "status": "passed",
+          "title": "alicode → url (stream + non-stream)",
+          "duration": 0.5403819999999087,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) alicode-intl → url (stream + non-stream)",
+          "status": "passed",
+          "title": "alicode-intl → url (stream + non-stream)",
+          "duration": 0.6227750000000469,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) alims-intl → url (stream + non-stream)",
+          "status": "passed",
+          "title": "alims-intl → url (stream + non-stream)",
+          "duration": 0.47498399999994945,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) alitp-intl → url (stream + non-stream)",
+          "status": "passed",
+          "title": "alitp-intl → url (stream + non-stream)",
+          "duration": 0.42002900000011323,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) anthropic → url (stream + non-stream)",
+          "status": "passed",
+          "title": "anthropic → url (stream + non-stream)",
+          "duration": 0.3434780000000046,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) api-airforce → url (stream + non-stream)",
+          "status": "passed",
+          "title": "api-airforce → url (stream + non-stream)",
+          "duration": 0.4107440000000224,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) assemblyai → url (stream + non-stream)",
+          "status": "passed",
+          "title": "assemblyai → url (stream + non-stream)",
+          "duration": 0.39179300000000694,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) atria → url (stream + non-stream)",
+          "status": "passed",
+          "title": "atria → url (stream + non-stream)",
+          "duration": 0.3608280000000832,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) bai → url (stream + non-stream)",
+          "status": "passed",
+          "title": "bai → url (stream + non-stream)",
+          "duration": 0.442585999999892,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) baidu → url (stream + non-stream)",
+          "status": "passed",
+          "title": "baidu → url (stream + non-stream)",
+          "duration": 0.4981909999999061,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) bazaarlink → url (stream + non-stream)",
+          "status": "passed",
+          "title": "bazaarlink → url (stream + non-stream)",
+          "duration": 0.21931999999992513,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) bedrock → url (stream + non-stream)",
+          "status": "passed",
+          "title": "bedrock → url (stream + non-stream)",
+          "duration": 0.17090200000006917,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) bedrock-xai → url (stream + non-stream)",
+          "status": "passed",
+          "title": "bedrock-xai → url (stream + non-stream)",
+          "duration": 0.20221499999979642,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) blackbox → url (stream + non-stream)",
+          "status": "passed",
+          "title": "blackbox → url (stream + non-stream)",
+          "duration": 0.167746999999963,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) bluesminds → url (stream + non-stream)",
+          "status": "passed",
+          "title": "bluesminds → url (stream + non-stream)",
+          "duration": 0.24366199999985838,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) byteplus → url (stream + non-stream)",
+          "status": "passed",
+          "title": "byteplus → url (stream + non-stream)",
+          "duration": 0.1872960000000603,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) cerebras → url (stream + non-stream)",
+          "status": "passed",
+          "title": "cerebras → url (stream + non-stream)",
+          "duration": 0.1520900000000438,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) chutes → url (stream + non-stream)",
+          "status": "passed",
+          "title": "chutes → url (stream + non-stream)",
+          "duration": 0.2615930000001754,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) claude → url (stream + non-stream)",
+          "status": "passed",
+          "title": "claude → url (stream + non-stream)",
+          "duration": 0.31672199999979966,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) cline → url (stream + non-stream)",
+          "status": "passed",
+          "title": "cline → url (stream + non-stream)",
+          "duration": 0.16720599999985097,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) clinepass → url (stream + non-stream)",
+          "status": "passed",
+          "title": "clinepass → url (stream + non-stream)",
+          "duration": 0.21092399999997724,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) cloudflare-ai → url (stream + non-stream)",
+          "status": "passed",
+          "title": "cloudflare-ai → url (stream + non-stream)",
+          "duration": 0.19702400000005582,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) codebuddy-cn → url (stream + non-stream)",
+          "status": "passed",
+          "title": "codebuddy-cn → url (stream + non-stream)",
+          "duration": 0.18241200000011304,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) codebuddy-intl → url (stream + non-stream)",
+          "status": "passed",
+          "title": "codebuddy-intl → url (stream + non-stream)",
+          "duration": 0.1895799999999781,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) cohere → url (stream + non-stream)",
+          "status": "passed",
+          "title": "cohere → url (stream + non-stream)",
+          "duration": 0.25842499999998836,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) dahl → url (stream + non-stream)",
+          "status": "passed",
+          "title": "dahl → url (stream + non-stream)",
+          "duration": 0.14223999999990156,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) deepgram → url (stream + non-stream)",
+          "status": "passed",
+          "title": "deepgram → url (stream + non-stream)",
+          "duration": 0.20277199999986806,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) deepseek → url (stream + non-stream)",
+          "status": "passed",
+          "title": "deepseek → url (stream + non-stream)",
+          "duration": 0.20290699999986828,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) featherless → url (stream + non-stream)",
+          "status": "passed",
+          "title": "featherless → url (stream + non-stream)",
+          "duration": 0.15057999999999083,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) fireworks → url (stream + non-stream)",
+          "status": "passed",
+          "title": "fireworks → url (stream + non-stream)",
+          "duration": 0.19862499999999272,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) gemini → url (stream + non-stream)",
+          "status": "passed",
+          "title": "gemini → url (stream + non-stream)",
+          "duration": 0.16647699999998622,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) gitlab → url (stream + non-stream)",
+          "status": "passed",
+          "title": "gitlab → url (stream + non-stream)",
+          "duration": 0.18883899999991627,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) glm → url (stream + non-stream)",
+          "status": "passed",
+          "title": "glm → url (stream + non-stream)",
+          "duration": 0.1418980000000829,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) glm-cn → url (stream + non-stream)",
+          "status": "passed",
+          "title": "glm-cn → url (stream + non-stream)",
+          "duration": 0.16741299999989678,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) grok-cli → url (stream + non-stream)",
+          "status": "passed",
+          "title": "grok-cli → url (stream + non-stream)",
+          "duration": 0.19726300000002084,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) groq → url (stream + non-stream)",
+          "status": "passed",
+          "title": "groq → url (stream + non-stream)",
+          "duration": 0.21624900000006164,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) hyperbolic → url (stream + non-stream)",
+          "status": "passed",
+          "title": "hyperbolic → url (stream + non-stream)",
+          "duration": 0.1954040000000532,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) kilo-gateway → url (stream + non-stream)",
+          "status": "passed",
+          "title": "kilo-gateway → url (stream + non-stream)",
+          "duration": 0.1380340000000615,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) kilocode → url (stream + non-stream)",
+          "status": "passed",
+          "title": "kilocode → url (stream + non-stream)",
+          "duration": 0.137559999999894,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) kimchi → url (stream + non-stream)",
+          "status": "passed",
+          "title": "kimchi → url (stream + non-stream)",
+          "duration": 0.2996680000001106,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) kimi → url (stream + non-stream)",
+          "status": "passed",
+          "title": "kimi → url (stream + non-stream)",
+          "duration": 0.21376299999997173,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) llm7 → url (stream + non-stream)",
+          "status": "passed",
+          "title": "llm7 → url (stream + non-stream)",
+          "duration": 0.19759700000008706,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) minimax → url (stream + non-stream)",
+          "status": "passed",
+          "title": "minimax → url (stream + non-stream)",
+          "duration": 0.14623699999992823,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) minimax-cn → url (stream + non-stream)",
+          "status": "passed",
+          "title": "minimax-cn → url (stream + non-stream)",
+          "duration": 0.13062599999989288,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) minimax-code → url (stream + non-stream)",
+          "status": "passed",
+          "title": "minimax-code → url (stream + non-stream)",
+          "duration": 0.13731499999994412,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) minimax-code-global → url (stream + non-stream)",
+          "status": "passed",
+          "title": "minimax-code-global → url (stream + non-stream)",
+          "duration": 0.17933900000002723,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) mistral → url (stream + non-stream)",
+          "status": "passed",
+          "title": "mistral → url (stream + non-stream)",
+          "duration": 0.16347799999994095,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) mmf → url (stream + non-stream)",
+          "status": "passed",
+          "title": "mmf → url (stream + non-stream)",
+          "duration": 0.1659310000000005,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) morph → url (stream + non-stream)",
+          "status": "passed",
+          "title": "morph → url (stream + non-stream)",
+          "duration": 0.1328240000000278,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) muse → url (stream + non-stream)",
+          "status": "passed",
+          "title": "muse → url (stream + non-stream)",
+          "duration": 0.1308369999999286,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) nanobanana → url (stream + non-stream)",
+          "status": "passed",
+          "title": "nanobanana → url (stream + non-stream)",
+          "duration": 0.16929899999990994,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) nebius → url (stream + non-stream)",
+          "status": "passed",
+          "title": "nebius → url (stream + non-stream)",
+          "duration": 0.253783999999996,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) nous → url (stream + non-stream)",
+          "status": "passed",
+          "title": "nous → url (stream + non-stream)",
+          "duration": 0.1780900000001111,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) nvidia → url (stream + non-stream)",
+          "status": "passed",
+          "title": "nvidia → url (stream + non-stream)",
+          "duration": 0.16053699999997662,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) ollama → url (stream + non-stream)",
+          "status": "passed",
+          "title": "ollama → url (stream + non-stream)",
+          "duration": 0.1285680000000866,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) openai → url (stream + non-stream)",
+          "status": "passed",
+          "title": "openai → url (stream + non-stream)",
+          "duration": 0.18345799999997325,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) opencode-zen → url (stream + non-stream)",
+          "status": "passed",
+          "title": "opencode-zen → url (stream + non-stream)",
+          "duration": 0.1774880000000394,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) openrouter → url (stream + non-stream)",
+          "status": "passed",
+          "title": "openrouter → url (stream + non-stream)",
+          "duration": 0.19675400000005538,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) perplexity → url (stream + non-stream)",
+          "status": "passed",
+          "title": "perplexity → url (stream + non-stream)",
+          "duration": 0.2328149999998459,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) perplexity-agent → url (stream + non-stream)",
+          "status": "passed",
+          "title": "perplexity-agent → url (stream + non-stream)",
+          "duration": 0.20722000000000662,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) poolside → url (stream + non-stream)",
+          "status": "passed",
+          "title": "poolside → url (stream + non-stream)",
+          "duration": 0.22406999999998334,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) qoder-cn → url (stream + non-stream)",
+          "status": "passed",
+          "title": "qoder-cn → url (stream + non-stream)",
+          "duration": 0.1802629999999681,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) sambanova → url (stream + non-stream)",
+          "status": "passed",
+          "title": "sambanova → url (stream + non-stream)",
+          "duration": 0.17638699999997698,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) siliconflow → url (stream + non-stream)",
+          "status": "passed",
+          "title": "siliconflow → url (stream + non-stream)",
+          "duration": 0.15286599999990358,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) tencent → url (stream + non-stream)",
+          "status": "passed",
+          "title": "tencent → url (stream + non-stream)",
+          "duration": 0.12967000000003281,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) together → url (stream + non-stream)",
+          "status": "passed",
+          "title": "together → url (stream + non-stream)",
+          "duration": 0.12648399999989124,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) tokenharbor → url (stream + non-stream)",
+          "status": "passed",
+          "title": "tokenharbor → url (stream + non-stream)",
+          "duration": 0.1986779999999726,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) tokenrouter → url (stream + non-stream)",
+          "status": "passed",
+          "title": "tokenrouter → url (stream + non-stream)",
+          "duration": 0.16755899999998292,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) venice → url (stream + non-stream)",
+          "status": "passed",
+          "title": "venice → url (stream + non-stream)",
+          "duration": 0.16075699999987592,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) vercel-ai-gateway → url (stream + non-stream)",
+          "status": "passed",
+          "title": "vercel-ai-gateway → url (stream + non-stream)",
+          "duration": 0.13712200000009034,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) volcengine-ark → url (stream + non-stream)",
+          "status": "passed",
+          "title": "volcengine-ark → url (stream + non-stream)",
+          "duration": 0.12899100000004182,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) xai → url (stream + non-stream)",
+          "status": "passed",
+          "title": "xai → url (stream + non-stream)",
+          "duration": 0.13304900000002817,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) xiaomi-mimo → url (stream + non-stream)",
+          "status": "passed",
+          "title": "xiaomi-mimo → url (stream + non-stream)",
+          "duration": 0.13005999999995765,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildUrl (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildUrl (default executor providers) zed → url (stream + non-stream)",
+          "status": "passed",
+          "title": "zed → url (stream + non-stream)",
+          "duration": 0.13431700000001,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) agnes → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "agnes → headers (apiKey / oauth)",
+          "duration": 1.267823000000135,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) alicode → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "alicode → headers (apiKey / oauth)",
+          "duration": 0.29547200000001794,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) alicode-intl → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "alicode-intl → headers (apiKey / oauth)",
+          "duration": 0.3011959999998908,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) alims-intl → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "alims-intl → headers (apiKey / oauth)",
+          "duration": 0.2587949999999637,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) alitp-intl → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "alitp-intl → headers (apiKey / oauth)",
+          "duration": 0.2345909999999094,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) anthropic → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "anthropic → headers (apiKey / oauth)",
+          "duration": 0.6016070000000582,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) api-airforce → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "api-airforce → headers (apiKey / oauth)",
+          "duration": 0.5272489999999834,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) assemblyai → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "assemblyai → headers (apiKey / oauth)",
+          "duration": 0.33574300000009316,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) atria → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "atria → headers (apiKey / oauth)",
+          "duration": 0.2946589999999105,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) bai → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "bai → headers (apiKey / oauth)",
+          "duration": 0.29152700000008736,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) baidu → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "baidu → headers (apiKey / oauth)",
+          "duration": 0.40758600000003753,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) bazaarlink → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "bazaarlink → headers (apiKey / oauth)",
+          "duration": 0.2736780000000181,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) bedrock → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "bedrock → headers (apiKey / oauth)",
+          "duration": 0.3257650000000467,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) bedrock-xai → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "bedrock-xai → headers (apiKey / oauth)",
+          "duration": 0.34215400000016416,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) blackbox → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "blackbox → headers (apiKey / oauth)",
+          "duration": 0.26501299999995354,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) bluesminds → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "bluesminds → headers (apiKey / oauth)",
+          "duration": 0.20049699999981385,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) byteplus → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "byteplus → headers (apiKey / oauth)",
+          "duration": 0.19812900000010814,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) cerebras → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "cerebras → headers (apiKey / oauth)",
+          "duration": 0.25027399999999034,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) chutes → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "chutes → headers (apiKey / oauth)",
+          "duration": 0.21991800000000694,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) claude → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "claude → headers (apiKey / oauth)",
+          "duration": 0.8963990000002013,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) cline → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "cline → headers (apiKey / oauth)",
+          "duration": 1.221958000000086,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) clinepass → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "clinepass → headers (apiKey / oauth)",
+          "duration": 0.47342200000002777,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) cloudflare-ai → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "cloudflare-ai → headers (apiKey / oauth)",
+          "duration": 0.22142399999984264,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) codebuddy-cn → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "codebuddy-cn → headers (apiKey / oauth)",
+          "duration": 0.300371000000041,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) codebuddy-intl → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "codebuddy-intl → headers (apiKey / oauth)",
+          "duration": 0.48739900000009584,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) cohere → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "cohere → headers (apiKey / oauth)",
+          "duration": 0.6299639999999727,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) dahl → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "dahl → headers (apiKey / oauth)",
+          "duration": 0.2639599999999973,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) deepgram → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "deepgram → headers (apiKey / oauth)",
+          "duration": 0.30307700000003024,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) deepseek → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "deepseek → headers (apiKey / oauth)",
+          "duration": 0.29097600000000057,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) featherless → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "featherless → headers (apiKey / oauth)",
+          "duration": 0.2797339999999622,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) fireworks → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "fireworks → headers (apiKey / oauth)",
+          "duration": 0.3554350000001705,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) gemini → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "gemini → headers (apiKey / oauth)",
+          "duration": 0.6179979999999432,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) gitlab → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "gitlab → headers (apiKey / oauth)",
+          "duration": 0.4113569999999527,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) glm → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "glm → headers (apiKey / oauth)",
+          "duration": 0.5210230000000138,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) glm-cn → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "glm-cn → headers (apiKey / oauth)",
+          "duration": 0.5178050000001804,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) grok-cli → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "grok-cli → headers (apiKey / oauth)",
+          "duration": 0.40585299999997915,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) groq → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "groq → headers (apiKey / oauth)",
+          "duration": 0.3181879999999637,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) hyperbolic → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "hyperbolic → headers (apiKey / oauth)",
+          "duration": 0.2536200000001827,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) kilo-gateway → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "kilo-gateway → headers (apiKey / oauth)",
+          "duration": 0.2091889999999239,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) kilocode → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "kilocode → headers (apiKey / oauth)",
+          "duration": 0.2566509999999198,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) kimchi → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "kimchi → headers (apiKey / oauth)",
+          "duration": 0.2489499999999225,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) kimi → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "kimi → headers (apiKey / oauth)",
+          "duration": 1.6955350000000635,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) llm7 → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "llm7 → headers (apiKey / oauth)",
+          "duration": 0.289833999999928,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) minimax → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "minimax → headers (apiKey / oauth)",
+          "duration": 0.21382400000015878,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) minimax-cn → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "minimax-cn → headers (apiKey / oauth)",
+          "duration": 0.201951999999892,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) minimax-code → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "minimax-code → headers (apiKey / oauth)",
+          "duration": 1.6058140000000094,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) minimax-code-global → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "minimax-code-global → headers (apiKey / oauth)",
+          "duration": 0.655364999999847,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) mistral → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "mistral → headers (apiKey / oauth)",
+          "duration": 0.2815250000001015,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) mmf → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "mmf → headers (apiKey / oauth)",
+          "duration": 0.2034960000000865,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) morph → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "morph → headers (apiKey / oauth)",
+          "duration": 0.1845130000001518,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) muse → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "muse → headers (apiKey / oauth)",
+          "duration": 0.44045299999993404,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) nanobanana → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "nanobanana → headers (apiKey / oauth)",
+          "duration": 0.23380100000008497,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) nebius → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "nebius → headers (apiKey / oauth)",
+          "duration": 0.19104799999990973,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) nous → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "nous → headers (apiKey / oauth)",
+          "duration": 0.21044899999992595,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) nvidia → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "nvidia → headers (apiKey / oauth)",
+          "duration": 0.28520400000002155,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) ollama → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "ollama → headers (apiKey / oauth)",
+          "duration": 0.23382599999990816,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) openai → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "openai → headers (apiKey / oauth)",
+          "duration": 0.2340790000000652,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) opencode-zen → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "opencode-zen → headers (apiKey / oauth)",
+          "duration": 0.25662800000009156,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) openrouter → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "openrouter → headers (apiKey / oauth)",
+          "duration": 0.27187000000003536,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) perplexity → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "perplexity → headers (apiKey / oauth)",
+          "duration": 0.18452800000000025,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) perplexity-agent → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "perplexity-agent → headers (apiKey / oauth)",
+          "duration": 0.2627199999999448,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) poolside → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "poolside → headers (apiKey / oauth)",
+          "duration": 0.22572500000001128,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) qoder-cn → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "qoder-cn → headers (apiKey / oauth)",
+          "duration": 0.32157199999983277,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) sambanova → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "sambanova → headers (apiKey / oauth)",
+          "duration": 0.2877840000001015,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) siliconflow → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "siliconflow → headers (apiKey / oauth)",
+          "duration": 0.20752100000004248,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) tencent → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "tencent → headers (apiKey / oauth)",
+          "duration": 0.21521999999981745,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) together → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "together → headers (apiKey / oauth)",
+          "duration": 0.22106800000005933,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) tokenharbor → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "tokenharbor → headers (apiKey / oauth)",
+          "duration": 0.17804200000000492,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) tokenrouter → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "tokenrouter → headers (apiKey / oauth)",
+          "duration": 0.16954499999997097,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) venice → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "venice → headers (apiKey / oauth)",
+          "duration": 0.1689569999998639,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) vercel-ai-gateway → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "vercel-ai-gateway → headers (apiKey / oauth)",
+          "duration": 0.1744570000000749,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) volcengine-ark → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "volcengine-ark → headers (apiKey / oauth)",
+          "duration": 0.22662700000000768,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) xai → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "xai → headers (apiKey / oauth)",
+          "duration": 0.23197800000002644,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) xiaomi-mimo → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "xiaomi-mimo → headers (apiKey / oauth)",
+          "duration": 0.1674289999998564,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GOLDEN buildHeaders (default executor providers)"
+          ],
+          "fullName": "GOLDEN buildHeaders (default executor providers) zed → headers (apiKey / oauth)",
+          "status": "passed",
+          "title": "zed → headers (apiKey / oauth)",
+          "duration": 0.2078400000000329,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1792645485847,
+      "endTime": 1792645485898.232,
+      "status": "passed",
+      "message": "",
+      "name": "/home/liling/multica_workspaces/mem0-a0ad083c709e/mem-450-a1c4e0d2341c/workdir/9router/tests/translator/golden-url-header.test.js"
+    }
+  ],
+  "environment": {
+    "TZ": "Asia/Shanghai",
+    "node": "v24.21.0",
+    "platform": "linux",
+    "arch": "x64"
+  }
+}

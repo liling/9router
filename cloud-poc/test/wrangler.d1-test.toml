@@ -1,0 +1,14 @@
+name = "9router-cloud-poc-d1-test"
+main = "../test-support/d1-probe-worker.js"
+compatibility_date = "2026-10-18"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[vars]
+UPSTREAM_ORIGIN = "http://127.0.0.1:8788"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lane-b-d1-test"
+database_id = "local-lane-b-d1-test"
+migrations_dir = "../migrations"

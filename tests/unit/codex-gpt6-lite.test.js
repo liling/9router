@@ -6,6 +6,9 @@ import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.j
 import { getPricingForModel } from "../../open-sse/providers/pricing.js";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 import * as proxyFetchModule from "../../open-sse/utils/proxyFetch.js";
+import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
+
+registerExecutorFetch((...args) => proxyFetchModule.proxyAwareFetch(...args));
 
 const credentials = { connectionId: "fixture", accessToken: "fixture-token" };
 afterEach(() => vi.restoreAllMocks());

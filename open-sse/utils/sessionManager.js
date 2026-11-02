@@ -15,18 +15,21 @@ import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
 const runtimeSessionStore = new Map();
 const continuationStore = new Map();
 
-// Periodically evict entries that haven't been used within TTL
-const cleanupInterval = setInterval(() => {
+// Start eviction only after this store has an entry to manage.
+let cleanupInterval;
+function ensureCleanupInterval() {
+  if (cleanupInterval) return;
+  cleanupInterval = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of runtimeSessionStore) {
         if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) {
             runtimeSessionStore.delete(key);
         }
     }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
+  }, MEMORY_CONFIG.sessionCleanupIntervalMs);
 
-// Allow Node.js to exit even if interval is still active
-if (cleanupInterval.unref) cleanupInterval.unref();
+  if (cleanupInterval.unref) cleanupInterval.unref();
+}
 
 /**
  * Get or create a session ID for the given connection.
@@ -62,6 +65,7 @@ export function deriveSessionId(connectionId) {
 
     const sessionId = generateBinaryStyleId();
     runtimeSessionStore.set(connectionId, { sessionId, lastUsed: Date.now() });
+    ensureCleanupInterval();
     return sessionId;
 }
 
@@ -194,6 +198,7 @@ function assistantTextSessionId(scope, body) {
     }
     const sessionId = generateBinaryStyleId();
     assistantSessionStore.set(hash, { sessionId, lastUsed: Date.now() });
+    ensureAssistantCleanupInterval();
     return sessionId;
 }
 
@@ -232,6 +237,7 @@ export function resolveContinuationId({ sessionId, connectionId, scope = "", eph
         existing.lastUsed = Date.now();
         continuationStore.delete(key);
         continuationStore.set(key, existing);
+        ensureAssistantCleanupInterval();
         return existing.continuationId;
     }
     const continuationId = crypto.randomUUID();
@@ -239,6 +245,7 @@ export function resolveContinuationId({ sessionId, connectionId, scope = "", eph
         continuationStore.delete(continuationStore.keys().next().value);
     }
     continuationStore.set(key, { continuationId, lastUsed: Date.now() });
+    ensureAssistantCleanupInterval();
     return continuationId;
 }
 
@@ -258,8 +265,11 @@ export function toNumericSessionId(sessionId) {
     return `-${n.toString()}`;
 }
 
-// Cleanup expired assistant-session entries
-const assistantCleanup = setInterval(() => {
+// Start shared eviction only after an assistant or continuation entry exists.
+let assistantCleanup;
+function ensureAssistantCleanupInterval() {
+  if (assistantCleanup) return;
+  assistantCleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of assistantSessionStore) {
         if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) assistantSessionStore.delete(key);
@@ -267,5 +277,6 @@ const assistantCleanup = setInterval(() => {
     for (const [key, entry] of continuationStore) {
         if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) continuationStore.delete(key);
     }
-}, MEMORY_CONFIG.sessionCleanupIntervalMs);
-if (assistantCleanup.unref) assistantCleanup.unref();
+  }, MEMORY_CONFIG.sessionCleanupIntervalMs);
+  if (assistantCleanup.unref) assistantCleanup.unref();
+}

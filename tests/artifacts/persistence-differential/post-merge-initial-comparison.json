@@ -1,0 +1,15 @@
+{
+  "base": {
+    "tests": 3806,
+    "failed": 115,
+    "pending": 98
+  },
+  "final": {
+    "tests": 3824,
+    "failed": 115,
+    "pending": 98
+  },
+  "baseOnlyFailures": [],
+  "finalOnlyFailures": [],
+  "currentOnlyFailures": 0
+}

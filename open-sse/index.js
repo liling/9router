@@ -1,5 +1,6 @@
 // Patch global fetch with proxy support (must be first)
 import "./utils/proxyFetch.js";
+import "./translator/register-all.js";
 
 // Config
 export { PROVIDERS } from "./config/providers.js";

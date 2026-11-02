@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import "../translator/registerAll.js";
 import {
   openaiResponsesToOpenAIRequest,
 } from "../../open-sse/translator/request/openai-responses.js";

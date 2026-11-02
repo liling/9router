@@ -1,0 +1,16 @@
+{
+  "name": "9router-cloud-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/wrangler-build.mjs",
+    "dev": "node scripts/wrangler-dev.mjs",
+    "mock": "node mock-upstream.mjs",
+    "test": "node --test",
+    "workers:build": "node scripts/workers-builds.mjs build",
+    "workers:deploy": "node scripts/workers-builds.mjs deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

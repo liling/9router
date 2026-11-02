@@ -1,0 +1,19 @@
+{
+  "phase": "before",
+  "source": "MEM-490 task description, captured before lane edits",
+  "test": "tests/unit/translator-registration-contract.test.js",
+  "nestedInvocation": "execFileSync('npm', ['exec', '--yes', '--package', 'vitest@4', ...])",
+  "parentVitestDefaultTimeoutMs": 5000,
+  "isolatedOuterTest": {
+    "outcome": "timeout",
+    "timeoutMs": 5000
+  },
+  "nestedNpmExecRuns": {
+    "count": 5,
+    "minDurationSeconds": 4.21,
+    "maxDurationSeconds": 9.80,
+    "individualDurationsAvailable": false
+  },
+  "directLocalVitestRunSeconds": 2.32,
+  "rootCause": "Synchronous nested package-manager and child Vitest startup/run blocks the parent test inside its default 5-second budget; intermittent runtime above that budget times out the parent despite successful child suites."
+}
