@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
+import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
+import { PROVIDERS } from "../../open-sse/config/providers.js";
 import worker from "../src/worker.js";
 
+const ORIGINAL_FETCH = globalThis.fetch;
+const REGISTRY_HOSTS = new Set([new URL(PROVIDERS.openai.baseUrl).hostname, new URL(PROVIDERS.anthropic.baseUrl).hostname]);
+
 let upstream;
-let upstreamOrigin;
+let upstreamPort;
 let observation;
 
 function observeUpstream() {
@@ -30,10 +35,17 @@ before(async () => {
     });
   });
   await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
-  upstreamOrigin = `http://127.0.0.1:${upstream.address().port}`;
+  upstreamPort = upstream.address().port;
+  registerExecutorFetch({ fetch(input, init) {
+    const target = new URL(typeof input === "string" ? input : input.url);
+    return REGISTRY_HOSTS.has(target.hostname)
+      ? ORIGINAL_FETCH(`http://127.0.0.1:${upstreamPort}${target.pathname}${target.search}`, init)
+      : ORIGINAL_FETCH(input, init);
+  } });
 });
 
 after(async () => {
+  registerExecutorFetch({ fetch: ORIGINAL_FETCH });
   upstream.closeAllConnections();
   await new Promise((resolve) => upstream.close(resolve));
 });
@@ -45,7 +57,6 @@ function invoke(signal) {
     body: JSON.stringify({ providerId: "openai", model: "mock-abort", messages: [{ role: "user", content: "cancel" }], stream: true }),
     signal,
   }), {
-    UPSTREAM_ORIGIN: upstreamOrigin,
     WORKER_CREDENTIAL: JSON.stringify({ version: 1, authType: "api_key", apiKey: crypto.randomUUID() }),
     DB: { prepare: () => ({ bind() { return this; }, async all() { return { results: [{ id: "connection", providerId: "openai", authType: "api_key", secretName: "WORKER_CREDENTIAL", enabledModels: "[]", priority: 0, isActive: 1 }] }; }, async run() { return { meta: { changes: 1 } }; }, async first() { return null; } }) },
   }, { waitUntil(promise) { promise.catch(() => {}); } });

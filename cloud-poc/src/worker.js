@@ -1,7 +1,5 @@
-import "../../open-sse/translator/register-serverless.js";
-import { initState, translateRequest, translateResponse } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
 import { getExecutor, RuntimeCapabilityError } from "../../open-sse/executors/serverless.js";
+import { handleWorkerChatCore, isWorkerProviderSupported } from "../../open-sse/handlers/chatCoreWorker.js";
 import { installRuntime, getRuntime } from "../../open-sse/runtime/context.js";
 import { composeCloudflareBaseRuntime, composeCloudflareRequestRuntime } from "../../open-sse/runtime/adapters/cloudflareProduction.js";
 import { createCloudflareBackgroundTasks } from "../../open-sse/runtime/adapters/cloudflareBackgroundTasks.js";
@@ -11,8 +9,6 @@ import { createD1ConnectionRepository } from "../../open-sse/runtime/adapters/d1
 import { createCloudflareSecretProvider } from "../../open-sse/runtime/adapters/cloudflareSecretProvider.js";
 import { credentialFallbackIterator } from "../../open-sse/runtime/credentials/resolver.js";
 import { registerExecutorFetch } from "../../open-sse/utils/executorFetch.js";
-import { formatSSE, parseSSELine } from "../../open-sse/utils/streamHelpers.js";
-import { SSE_DONE } from "../../open-sse/utils/sseConstants.js";
 
 const jsonHeaders = { "content-type": "application/json; charset=utf-8" };
 
@@ -20,83 +16,21 @@ const runtime = composeCloudflareBaseRuntime();
 installRuntime(runtime);
 registerExecutorFetch(runtime.ports.httpTransport);
 
-function translateJSONResponse(body, state, clientFormat) {
-  const message = body.choices?.[0]?.message || {};
-  const chunks = [
-    { id: body.id, model: body.model, choices: [{ delta: { role: "assistant", ...message } }] },
-    { id: body.id, model: body.model, choices: [{ delta: {}, finish_reason: body.choices?.[0]?.finish_reason || "stop" }] },
-  ];
-  const events = chunks.flatMap((chunk) => translateResponse(FORMATS.OPENAI, clientFormat, chunk, state) || []);
-  const messageStart = events.find((event) => event.type === "message_start")?.message || {};
-  const content = [];
-  for (const event of events) {
-    if (event.type === "content_block_start") content[event.index] = event.content_block;
-    if (event.type === "content_block_delta") {
-      const block = content[event.index];
-      if (block?.type === "text") block.text += event.delta.text || "";
-      if (block?.type === "thinking") block.thinking += event.delta.thinking || "";
-    }
-  }
-  const delta = events.find((event) => event.type === "message_delta")?.delta || {};
-  return {
-    id: messageStart.id || body.id,
-    type: "message",
-    role: "assistant",
-    model: messageStart.model || body.model,
-    content: content.filter(Boolean),
-    stop_reason: delta.stop_reason || "end_turn",
-    stop_sequence: delta.stop_sequence || null,
-    usage: messageStart.usage || { input_tokens: 0, output_tokens: 0 },
-  };
-}
-
-function translateSSE(body, clientFormat, onCancel) {
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-  const state = initState(clientFormat);
-  let buffer = "";
-
-  const transform = new TransformStream({
-    transform(bytes, controller) {
-      buffer += decoder.decode(bytes, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        const parsed = parseSSELine(line.trim(), FORMATS.OPENAI);
-        if (!parsed || parsed.done) continue;
-        const translated = translateResponse(FORMATS.OPENAI, clientFormat, parsed, state) || [];
-        for (const item of translated) controller.enqueue(encoder.encode(formatSSE(item, clientFormat)));
-      }
-    },
-    flush(controller) {
-      buffer += decoder.decode();
-      if (buffer.trim()) {
-        const parsed = parseSSELine(buffer.trim(), FORMATS.OPENAI);
-        if (parsed && !parsed.done) {
-          const translated = translateResponse(FORMATS.OPENAI, clientFormat, parsed, state) || [];
-          for (const item of translated) controller.enqueue(encoder.encode(formatSSE(item, clientFormat)));
-        }
-      }
-      if (clientFormat === FORMATS.OPENAI) controller.enqueue(encoder.encode(SSE_DONE));
-    },
-  });
-
-  const reader = body.pipeThrough(transform).getReader();
-  return new ReadableStream({
+function withCancelTelemetry(response, telemetry, executionAbort) {
+  if (!response.body) return response;
+  const reader = response.body.getReader();
+  return new Response(new ReadableStream({
     async pull(controller) {
-      try {
-        const { done, value } = await reader.read();
-        if (done) controller.close();
-        else controller.enqueue(value);
-      } catch (error) {
-        controller.error(error);
-      }
+      const { done, value } = await reader.read();
+      if (done) controller.close();
+      else controller.enqueue(value);
     },
     async cancel(reason) {
-      onCancel?.(reason);
+      telemetry.cancelDispatchedAt = new Date().toISOString();
+      executionAbort.abort();
       await reader.cancel(reason);
     },
-  });
+  }), { status: response.status, headers: response.headers });
 }
 
 const backgroundProbeState = new Map();
@@ -301,93 +235,64 @@ export default {
     if (incomingUrl.pathname !== "/v1/chat/completions" || request.method !== "POST") {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
-    if (!env.UPSTREAM_ORIGIN) return Response.json({ error: "credential_source_unavailable" }, { status: 503 });
-
-    const requestId = request.headers.get("x-poc-request-id") || crypto.randomUUID();
+    const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
     while (cancelTelemetry.size >= maxCancelTelemetryEntries) {
       cancelTelemetry.delete(cancelTelemetry.keys().next().value);
     }
     const telemetry = { requestId, receivedAt: new Date().toISOString(), cancelDispatchedAt: null };
     cancelTelemetry.set(requestId, telemetry);
 
-    const clientFormat = request.headers.get("x-poc-client-format") === FORMATS.OPENAI
-      ? FORMATS.OPENAI
-      : FORMATS.CLAUDE;
     const payload = await request.json();
     const model = payload.model;
     const providerId = payload.providerId;
     if (typeof providerId !== "string" || !providerId || typeof model !== "string" || !model) {
       return Response.json({ error: "credential_unsupported", requestId }, { status: 400 });
     }
-    let executor;
-    try { executor = getExecutor(providerId); }
+    if (!isWorkerProviderSupported(providerId)) {
+      return Response.json({ error: "credential_unsupported", requestId }, { status: 400 });
+    }
+    try { getExecutor(providerId); }
     catch { return Response.json({ error: "credential_unsupported", requestId }, { status: 400 }); }
     const executionAbort = new AbortController();
     if (request.signal.aborted) executionAbort.abort(request.signal.reason);
     else request.signal.addEventListener("abort", () => executionAbort.abort(request.signal.reason), { once: true });
 
     try {
+      const connectionRepository = createD1ConnectionRepository(env.DB);
       const attempts = credentialFallbackIterator({
         providerId,
         model,
-        repository: createD1ConnectionRepository(env.DB),
+        repository: connectionRepository,
         secretProvider: requestRuntime.assertPort("secret"),
       });
-      let upstreamResponse;
+      let clientResponse;
       for await (const resolved of attempts) {
-        const credentials = {
-          ...resolved,
-          runtimeTransport: {
-            baseUrl: env.UPSTREAM_ORIGIN,
-            urlSuffix: "/v1/chat/completions",
-            headers: { accept: payload.stream ? "text/event-stream" : "application/json" },
-          },
-        };
-        const translatedRequest = translateRequest(
-          clientFormat,
-          FORMATS.OPENAI,
+        const result = await handleWorkerChatCore({
+          body: payload,
+          provider: providerId,
           model,
-          payload,
-          Boolean(payload.stream),
-          credentials,
-          providerId,
-        );
-        const result = await executor.execute({
-          model,
-          body: translatedRequest,
-          stream: Boolean(payload.stream),
-          credentials,
+          credentials: resolved,
           signal: executionAbort.signal,
+          userAgent: request.headers.get("user-agent") || "",
         });
-        upstreamResponse = result.response;
-        if (upstreamResponse.status !== 401 && upstreamResponse.status !== 403) break;
+        clientResponse = result.response;
+        if (clientResponse.status !== 401 && clientResponse.status !== 403) break;
         try {
-          await createD1ConnectionRepository(env.DB).markUnavailable({
+          await connectionRepository.markUnavailable({
             id: resolved.connectionId, status: "unauthorized", model,
           });
         } catch {
           return Response.json({ error: "credential_source_unavailable", requestId }, { status: 503 });
         }
       }
-      if (!upstreamResponse) return Response.json({ error: "credential_unavailable", requestId }, { status: 503 });
-      if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
+      if (!clientResponse) return Response.json({ error: "credential_unavailable", requestId }, { status: 503 });
+      if (clientResponse.status === 401 || clientResponse.status === 403) {
         return Response.json({ error: "credential_unavailable", requestId }, { status: 503 });
       }
-      if (!upstreamResponse.ok) return upstreamResponse;
-      if (clientFormat === FORMATS.OPENAI) return upstreamResponse;
-
-      const state = initState(clientFormat);
-      if (!payload.stream) {
-        return Response.json(translateJSONResponse(await upstreamResponse.json(), state, clientFormat));
+      if (clientResponse.ok && payload.stream) {
+        clientResponse = withCancelTelemetry(clientResponse, telemetry, executionAbort);
       }
-
-      return new Response(translateSSE(upstreamResponse.body, clientFormat, () => {
-        telemetry.cancelDispatchedAt = new Date().toISOString();
-        executionAbort.abort();
-      }), {
-        status: upstreamResponse.status,
-        headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache" },
-      });
+      return clientResponse;
     } catch (error) {
       if (executionAbort.signal.aborted) throw error;
       const code = ["credential_unavailable", "credential_source_unavailable", "credential_unsupported", "credential_strategy_unsupported"].includes(error.code)

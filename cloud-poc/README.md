@@ -1,6 +1,6 @@
 # Worker compatibility PoC
 
-This Worker PoC exercises the production OpenAI↔Claude request/response translators and the production `DefaultExecutor` against a configurable mock upstream. A Claude-shaped client request is translated to OpenAI format, sent through `executors/serverless.js` using `credentials.runtimeTransport`, then translated back to Claude format.
+This Worker PoC exercises the production OpenAI↔Claude request/response translators and the production `DefaultExecutor` through the shared Worker handler boundary (`open-sse/handlers/chatCoreWorker.js`). A Claude-shaped client request is translated to OpenAI format, sent by the serverless executor to the registry provider URL resolved from the T2 connection credentials, and translated back to Claude format by the production non-streaming/streaming handlers.
 
 ## Local checks
 
@@ -12,20 +12,19 @@ npm test
 npm run build
 ```
 
-`npm test` runs a real Wrangler/Workerd end-to-end test for JSON, multi-chunk SSE, non-2xx passthrough, client abort, and Local-only capability denial against a local mock upstream. It also runs fast Node-level boundary and translator parity tests. To run Wrangler manually, start `npm run mock` and `npm run dev -- --ip 127.0.0.1 --port 8787` in separate terminals, then send a Claude-shaped request to `http://127.0.0.1:8787/v1/chat/completions`:
+`npm test` runs a real Wrangler/Workerd end-to-end test that applies the D1 migrations, verifies the deployable Worker's probe and API-key boundary, exercises concurrent request-scoped D1 ephemeral stores, and checks Local-only capability denial. Chat JSON/SSE, forced OpenAI streaming to JSON, 401 connection fallback with request-local exclusions, concurrent credential isolation, unsupported-provider rejection, credential non-emission, and client-abort propagation run in Node against the production executor through an in-process `http-fetch` port redirect to an offline fixture (`test/worker.test.js`, `test/worker-cancel-chain.test.js`). `test/chat-worker-boundary.test.js` guards the Worker chat import graph.
+
+The chat endpoint takes the provider id and model in the request body and resolves that provider's connection and secret per request:
 
 ```sh
-curl -i -X POST http://127.0.0.1:8787/v1/chat/completions -H 'content-type: application/json' -d '{"model":"mock-model","max_tokens":32,"messages":[{"role":"user","content":"json"}]}'
-curl -N -X POST http://127.0.0.1:8787/v1/chat/completions -H 'content-type: application/json' -d '{"model":"mock-model","max_tokens":32,"messages":[{"role":"user","content":"stream"}],"stream":true}'
-curl -i -X POST http://127.0.0.1:8787/v1/chat/completions -H 'content-type: application/json' -d '{"model":"mock-error","messages":[{"role":"user","content":"fail"}]}'
+curl -i -X POST http://127.0.0.1:8787/v1/chat/completions -H 'content-type: application/json' -d '{"providerId":"openai","model":"gpt-4.1-mini","system":"test","messages":[{"role":"user","content":"json"}]}'
+curl -N -X POST http://127.0.0.1:8787/v1/chat/completions -H 'content-type: application/json' -d '{"providerId":"openai","model":"gpt-4.1-mini","system":"test","messages":[{"role":"user","content":"stream"}],"stream":true}'
 ```
-
-Set model to `mock-abort` and cancel the client request to exercise the cancellation path. The deterministic automated test verifies that cancelling the downstream response closes the production executor's upstream connection.
 
 ## Limits
 
 - The Worker selects only the approved serverless translator entry and `DefaultExecutor`; it does not load the eager Local executor registry.
-- `UPSTREAM_ORIGIN` uses a local address for Wrangler development; configure a reachable service before deployment.
+- No loopback origin is configured: the executor target comes from the provider registry, and request credentials come from the T2 connection resolver (API-key providers: `openai`, `anthropic`, `deepseek`, `mistral`, `groq`, `xai`). Offline tests redirect the `http-fetch` port to a local fixture instead of reconfiguring the Worker.
 - Wrangler local request durations are wall-clock observations, not Cloudflare CPU measurements. Remote CPU evidence needs authenticated Cloudflare execution and is outside this lane.
 
 ## D1 and executor boundary
@@ -40,7 +39,7 @@ that adapter.
 `open-sse/executors/serverless.js` is the selected Worker registry. It imports
 only `DefaultExecutor` and explicitly rejects the local-only executors listed
 in the production capability table. The Worker obtains its upstream URL from
-`credentials.runtimeTransport`, so the test uses the same production executor
+the provider registry entry, so the test uses the same production executor
 path rather than a Worker-local fetch adapter.
 
 ## Runtime capability matrix
